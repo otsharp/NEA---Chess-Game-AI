@@ -1,0 +1,12 @@
+V1.0
+- Initialised file structure
+V1.1
+- Initialised classes
+- Created empty functions detailed in UML diagram with either pass or return None
+- Created main attributes for each class detailed in UML diagram with value None
+- Imports between files
+- Created usage() function in Chess.py
+- Added checks for program calls by user, and calls usage() if something is wrong, e.g. they called Pieces.py
+- Chess.py creates a Game instance with the UItype the user requested
+- Implemented Terminal UI _display_board function
+- Renamed Game.py to Game_Player.py to reflect it containing the Player class

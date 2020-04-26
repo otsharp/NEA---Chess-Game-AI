@@ -17,3 +17,10 @@ V1.2
 - This required a _2nd_init() method for the Player class, so that it collects all the pointers to its pieces when the Game instance is created
 - All piece classes have been created, with move functionality tailored for each, with the knight now working as intended
 - Flipped the board output vertically in the Terminal._display_output() method, so that it makes more sense, i.e. the indexes increase with the board's standard labelled row numbers
+V1.3
+- Game.__is_move_legal() implemented
+- Game__get_settings() implemented
+- Added Game.__is_over() function, that currently returns False as check is not implemented
+- Game.__do_turn() implemented along with Game.play_game, accepting the alpha-numeric board positions, however it only checks the positions is inside in the board, and crashes if it isn't in the correct format
+- Fixed incorrect position crashing issue
+- MVP Complete

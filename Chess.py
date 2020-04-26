@@ -24,5 +24,4 @@ if __name__ == "__main__":
     else:
         usage()
 
-    game._display_board()
-    print(game._players[0]._avail_moves())
+    game.play_game()

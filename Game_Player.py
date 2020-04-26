@@ -1,4 +1,5 @@
 from Pieces import *
+import os
 
 
 class Game:
@@ -6,15 +7,33 @@ class Game:
         self._EMPTY = "_"
         self._SIZE = 8
         self.__UI = UItype(self)
-        self._players = [Player(self), Player(self)]
-        self.__toPlay = 0
-        self._board = self.__reset_board()
         self.__settings = self.__get_settings()
+        if self.__settings[0] == "Y":
+            self._players = [Player(self), AI(self)]
+            if self.__settings[1] == "Y":
+                self.__toPlay = 0
+            else:
+                self.__toPlay = 1
+        else:
+            self._players = [Player(self), Player(self)]
+            self.__toPlay = 0
+        self._board = self.__reset_board()
         for player in self._players:
             player._2nd_init()
 
     def __get_settings(self):
-        return None
+        s = []
+        x = ""
+        while x not in ["Y", "N"]:
+            x = input("Do you want to play an AI? (Y/N): ").upper()
+        s.append(x)
+        if x == "Y":
+            while x not in ["Y", "N"]:
+                x = input("Do you want to go first? (Y/N): ").upper()
+            else:
+                x = None
+        s.append(x)
+        return s
 
     def __reset_board(self):  # only return empty board currently
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
@@ -61,17 +80,49 @@ class Game:
         ]
         return b
 
+    def __is_over(self):
+        return False
+
     def __do_turn(self):
-        pass
+        moves = self._players[self.__toPlay]._avail_moves()
+        move = (input("Enter your move, old position then new position: ")).split(" ")
+        move1 = []
+        for pos in move:
+            try:
+                move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
+            except (ValueError, IndexError):
+                self.__do_turn()
+                return
+        flag = True
+        for pos in move1:
+            for coord in pos:
+                if coord > 7 or coord < 0:
+                    self.__do_turn()
+                    return
+        if move1 not in moves:
+            self.__do_turn()
+            return
+        piece = self._board[move1[0][0]][move1[0][1]]
+        self._board[move1[0][0]][move1[0][1]] = self._EMPTY
+        piece._pos = move1[1]
+        self._board[move1[1][0]][move1[1][1]] = piece
 
     def play_game(self):
-        pass
+        os.system("cls")
+        self._display_board()
+        print("White to play")
+        while not self.__is_over():
+            self.__do_turn()
+            os.system("cls")
+            self._display_board()
+            self.__toPlay = (self.__toPlay + 1) % 2
+            print(f"{['White', 'Black'][self.__toPlay]} to play")
 
     def _display_board(self):
         self.__UI._display_board()
 
     def __is_move_legal(self, move):
-        return None
+        return move in self._players[self.__toPlay]._avail_moves()
 
 
 class Player:

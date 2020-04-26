@@ -17,7 +17,7 @@ class Piece(ABC):
         moves = []
         for dir in self._dirs:
             i = 1
-            while i < self._max_dis and -1 < self._pos[0] + dir[0] * i < self._game._SIZE and -1 < self._pos[1] + dir[
+            while i < self._max_dis + 1 and -1 < self._pos[0] + dir[0] * i < self._game._SIZE and -1 < self._pos[1] + dir[
                 1] * i < self._game._SIZE and (
                     self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i] == self._game._EMPTY or
                     self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i]._player != self._player):
@@ -43,11 +43,11 @@ class Knight(Piece):
     def __init__(self, pos, player, game):
         super().__init__(pos, player, game)
         if self._player == self._game._players[0]:
-            self._symbol = symbols["Kw"]
+            self._symbol = symbols["Nw"]
         else:
-            self._symbol = symbols["Kb"]
+            self._symbol = symbols["Nb"]
         self._dirs = [[1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1]]
-        self._max_dis = 2
+        self._max_dis = 1
 
 
 class Bishop(Piece):
@@ -69,7 +69,7 @@ class King(Piece):
         else:
             self._symbol = symbols["Kb"]
         self._dirs = [[1, 1], [-1, -1], [1, -1], [-1, 1], [0, 1], [0, -1], [1, 0], [-1, 0]]
-        self._max_dis = 2
+        self._max_dis = 1
 
 
 class Queen(Piece):
@@ -92,7 +92,7 @@ class Pawn(Piece):
         else:
             self._symbol = symbols["Pb"]
             self._dirs = [[-1, 0]]
-        self._max_dis = 2
+        self._max_dis = 1
 
 
 if __name__ == "__main__":

@@ -36,10 +36,13 @@ class Terminal(UI):
         for i in range(len(board)):
             x += chr(65 + i) + " "
         x += "\n"
-        for i, row in enumerate(board):
+        for i, row in enumerate(board[::-1]):
             y = ""
             for element in row:
-                y += element + " "
+                if element == self._game._EMPTY:
+                    y += element + " "
+                else:
+                    y += element._symbol + " "
             x += str(len(board) - i) + " " + y + "\n"
         print(x)
 

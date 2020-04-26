@@ -2,6 +2,7 @@ from pathlib import Path
 from sys import argv
 from Game_Player import Game
 from UI import GUI, Terminal
+from Pieces import Rook
 
 
 def usage():
@@ -22,3 +23,6 @@ if __name__ == "__main__":
         game = Game(Terminal)
     else:
         usage()
+
+    game._display_board()
+    print(game._players[0]._avail_moves())

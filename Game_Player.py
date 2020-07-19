@@ -2,6 +2,7 @@ from Pieces import *
 import os
 from copy import deepcopy
 import time
+import random
 
 
 class Game:
@@ -14,9 +15,9 @@ class Game:
         if self.__settings[0] == "Y":
             self._players = [Player(self), AI(self)]
             if self.__settings[1] == "Y":
-                selfself._toPlay = 0
+                self._toPlay = 0
             else:
-                selfself._toPlay = 1
+                self._toPlay = 1
         else:
             self._players = [Player(self), Player(self)]
             self._toPlay = 0
@@ -72,8 +73,14 @@ class Game:
         ]
         return b
 
+    def _in_stalemate(self, p_moves):
+        player1_cant_move = p_moves == [] and not self._players[self._toPlay]._in_check()
+        player2_cant_move = (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
+        only_kings = all([p.__class__.__name__ == "King" for p in self._players[0]._pieces if p._taken == False]) and all([p.__class__.__name__ == "King" for p in self._players[1]._pieces if p._taken == False])
+        return any([player1_cant_move, player2_cant_move, only_kings])
+
     def __is_over(self, p_moves):
-        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[self._toPlay]._in_stalemate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._players[1 - self._toPlay]._in_stalemate()
+        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._in_stalemate(p_moves)
 
     def _make_move(self, move):
         piece = self._board[move[0][0]][move[0][1]]
@@ -102,30 +109,14 @@ class Game:
         self._toPlay = (self._toPlay + 1) % 2
 
     def __do_turn(self, moves):
-        move = input("Enter your move, old position then new position: ")
+        move = self._players[self._toPlay]._get_move(moves)
         if move == "undo":
             self._undo_move()
             os.system("cls")
             self._display_board()
             self.__do_turn(moves)
             return
-        move = move.split(" ")
-        move1 = []
-        for pos in move:
-            try:
-                move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
-            except (ValueError, IndexError):
-                self.__do_turn(moves)
-                return
-        for pos in move1:
-            for coord in pos:
-                if coord > 7 or coord < 0:
-                    self.__do_turn(moves)
-                    return
-        if move1 not in moves:
-            self.__do_turn(moves)
-            return
-        self._make_move(move1)
+        self._make_move(move)
 
     def play_game(self):
         os.system("cls")
@@ -139,6 +130,10 @@ class Game:
             os.system("cls")
             self._display_board()
             print(f"{['White', 'Black'][self._toPlay]} to play")
+        if self._in_stalemate(p_moves):
+            print("Stalemate")
+        else:
+            print(f"{['White', 'Black'][1 - self._toPlay]} wins")
 
     def _display_board(self):
         self.__UI._display_board()
@@ -168,6 +163,25 @@ class Player:
                 moves.append([piece._pos, move])
         return moves
 
+    def _get_move(self, moves):
+        move = input("Enter your move, old position then new position: ").split(" ")
+        move1 = []
+        for pos in move:
+            try:
+                move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
+            except (ValueError, IndexError) as e:
+                print("Value / Index Error", e)
+                return self._get_move(moves)
+        for pos in move1:
+            for coord in pos:
+                if coord > 7 or coord < 0:
+                    print("Out of bounds")
+                    return self._get_move(moves)
+        if move1 not in moves:
+            print("Not valid move")
+            return self._get_move(moves)
+        return move1
+
     def _in_check(self):
         return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
 
@@ -176,10 +190,14 @@ class Player:
             p_moves = self._avail_moves()
         return p_moves == [] and self._in_check()
 
-    def _in_stalemate(self, p_moves=[]):
-        if not p_moves:
-            p_moves = self._avail_moves()
-        return p_moves == [] and not self._in_check()
+
+class AI(Player):
+    def __init__(self, game):
+        super().__init__(game)
+
+    def _get_move(self, moves):
+        print(moves)
+        return random.choice(moves)
 
 
 if __name__ == "__main__":

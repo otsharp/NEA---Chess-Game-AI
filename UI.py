@@ -67,11 +67,12 @@ class Terminal(UI):
             x = input("Do you want to play an AI? (Y/N): ").upper()
         s.append(x)
         if x == "Y":
-            while x not in ["Y", "N"]:
-                x = input("Do you want to go first? (Y/N): ").upper()
-            else:
-                x = None
-        s.append(x)
+            y = ""
+            while y not in ["Y", "N"]:
+                y = input("Do you want to go first? (Y/N): ").upper()
+        else:
+            y = None
+        s.append(y)
         return s
 
 

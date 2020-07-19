@@ -31,3 +31,12 @@ V2.1
 - Modified Piece._avail_moves() to take a careifcheck argument, and if true, ensure moves returned don't make, or keep, their king in check
 - Added Game._make_move(move) and Game._undo_move(), including the Game._undo_stack attribute
 - Made Game.__is_over() actually check if the game is over according to the current checkmate and stalemate conditions
+V2.2
+- Fixed Terminal._get_settings()
+- Implemented the AI class
+- Moved move choice to Player / AI class, not Game.__do_turn()
+- Made AI pick a random move from current legal moves
+- Moved stalemate checks from Player class to Game class
+- Stalemate checks for just 2 kings left
+- Added message to game end to say who won
+- Can play a full game against the AI (picking random moves), according to current rules

@@ -10,21 +10,32 @@ class Piece(ABC):
         self._player = player
         self._pos = pos
         self._game = game
+        self._taken = False
         #self._dirs = []
         #self._max_dis = -1
 
-    def _avail_moves(self):
+    def _avail_moves(self, careifcheck):
         moves = []
-        for dir in self._dirs:
-            i = 1
-            while i < self._max_dis + 1 and -1 < self._pos[0] + dir[0] * i < self._game._SIZE and -1 < self._pos[1] + dir[
-                1] * i < self._game._SIZE and (
-                    self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i] == self._game._EMPTY or
-                    self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i]._player != self._player):
-                moves.append([self._pos[0] + dir[0] * i, self._pos[1] + dir[1] * i])
-                if self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i] != self._game._EMPTY:
-                    break
-                i += 1
+        if not self._taken:
+            for dir in self._dirs:
+                i = 1
+                while i < self._max_dis + 1 and -1 < self._pos[0] + dir[0] * i < self._game._SIZE and -1 < self._pos[1] + dir[
+                    1] * i < self._game._SIZE and (
+                        self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i] == self._game._EMPTY or
+                        self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i]._player != self._player):
+                    moves.append([self._pos[0] + dir[0] * i, self._pos[1] + dir[1] * i])
+                    if self._game._board[self._pos[0] + dir[0] * i][self._pos[1] + dir[1] * i] != self._game._EMPTY:
+                        break
+                    i += 1
+            if careifcheck:
+                pops = []
+                for i in range(len(moves)):
+                    move = moves[i]
+                    self._game._make_move([self._pos, move])
+                    if self._game._players[1 - self._game._toPlay]._in_check():
+                        pops.append(i)
+                    self._game._undo_move()
+                moves = [move for i, move in enumerate(moves) if i not in pops]
         return moves
 
 

@@ -24,3 +24,10 @@ V1.3
 - Game.__do_turn() implemented along with Game.play_game, accepting the alpha-numeric board positions, however it only checks the positions is inside in the board, and crashes if it isn't in the correct format
 - Fixed incorrect position crashing issue
 - MVP Complete
+V2.1
+- Game.__get_settings() now calls its UI._get_settings(), with the code previously there being in the Terminal._get_settings()
+- Added the numbers and letters on right and below of the board, to match the left and top
+- Implemented Player._in_check, Player._in_checkmate() and Player._in_stalemate(), with the only stalemate rule being player can't move and isn't in check
+- Modified Piece._avail_moves() to take a careifcheck argument, and if true, ensure moves returned don't make, or keep, their king in check
+- Added Game._make_move(move) and Game._undo_move(), including the Game._undo_stack attribute
+- Made Game.__is_over() actually check if the game is over according to the current checkmate and stalemate conditions

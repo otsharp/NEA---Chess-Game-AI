@@ -12,7 +12,11 @@ class UI(ABC):
 
     @abstractmethod
     def _get_move(self):
-        return None
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_settings(self):
+        raise NotImplementedError
 
 
 class GUI(UI):
@@ -24,6 +28,9 @@ class GUI(UI):
 
     def _get_move(self):
         return None
+
+    def _get_settings(self):
+        return ["N"]
 
 
 class Terminal(UI):
@@ -43,11 +50,29 @@ class Terminal(UI):
                     y += element + " "
                 else:
                     y += element._symbol + " "
-            x += str(len(board) - i) + " " + y + "\n"
+            x += str(len(board) - i) + " " + y +str(len(board) - i) + "\n"
+        x += "  "
+        for i in range(len(board)):
+            x += chr(65 + i) + " "
+        x += "\n"
         print(x)
 
     def _get_move(self):
         return None
+
+    def _get_settings(self):
+        s = []
+        x = ""
+        while x not in ["Y", "N"]:
+            x = input("Do you want to play an AI? (Y/N): ").upper()
+        s.append(x)
+        if x == "Y":
+            while x not in ["Y", "N"]:
+                x = input("Do you want to go first? (Y/N): ").upper()
+            else:
+                x = None
+        s.append(x)
+        return s
 
 
 if __name__ == "__main__":

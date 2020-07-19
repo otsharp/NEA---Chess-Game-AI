@@ -1,5 +1,7 @@
 from Pieces import *
 import os
+from copy import deepcopy
+import time
 
 
 class Game:
@@ -8,34 +10,24 @@ class Game:
         self._SIZE = 8
         self.__UI = UItype(self)
         self.__settings = self.__get_settings()
+        self._undo_stack = []
         if self.__settings[0] == "Y":
             self._players = [Player(self), AI(self)]
             if self.__settings[1] == "Y":
-                self.__toPlay = 0
+                selfself._toPlay = 0
             else:
-                self.__toPlay = 1
+                selfself._toPlay = 1
         else:
             self._players = [Player(self), Player(self)]
-            self.__toPlay = 0
+            self._toPlay = 0
         self._board = self.__reset_board()
         for player in self._players:
             player._2nd_init()
 
     def __get_settings(self):
-        s = []
-        x = ""
-        while x not in ["Y", "N"]:
-            x = input("Do you want to play an AI? (Y/N): ").upper()
-        s.append(x)
-        if x == "Y":
-            while x not in ["Y", "N"]:
-                x = input("Do you want to go first? (Y/N): ").upper()
-            else:
-                x = None
-        s.append(x)
-        return s
+        return self.__UI._get_settings()
 
-    def __reset_board(self):  # only return empty board currently
+    def __reset_board(self):
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
         b[0] = [
             Rook([0, 0], self._players[0], self),
@@ -80,49 +72,79 @@ class Game:
         ]
         return b
 
-    def __is_over(self):
-        return False
+    def __is_over(self, p_moves):
+        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[self._toPlay]._in_stalemate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._players[1 - self._toPlay]._in_stalemate()
 
-    def __do_turn(self):
-        moves = self._players[self.__toPlay]._avail_moves()
-        move = (input("Enter your move, old position then new position: ")).split(" ")
+    def _make_move(self, move):
+        piece = self._board[move[0][0]][move[0][1]]
+        new = self._board[move[1][0]][move[1][1]]
+        if type(new) != str:
+            self._undo_stack.append([piece, piece._pos, new, new._taken])
+            new._taken = True
+        else:
+            self._undo_stack.append([piece, piece._pos, None, None])
+        self._board[move[0][0]][move[0][1]] = self._EMPTY
+        piece._pos = move[1]
+        self._board[move[1][0]][move[1][1]] = piece
+        self._toPlay = (self._toPlay + 1) % 2
+
+    def _undo_move(self):
+        b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
+        piece, piece_dest, old, taken = self._undo_stack.pop()
+        piece._pos = piece_dest
+        if old is not None:
+            old._taken = False
+        for i in range(2):
+            for piece in self._players[i]._pieces:
+                if not piece._taken:
+                    b[piece._pos[0]][piece._pos[1]] = piece
+        self._board = b
+        self._toPlay = (self._toPlay + 1) % 2
+
+    def __do_turn(self, moves):
+        move = input("Enter your move, old position then new position: ")
+        if move == "undo":
+            self._undo_move()
+            os.system("cls")
+            self._display_board()
+            self.__do_turn(moves)
+            return
+        move = move.split(" ")
         move1 = []
         for pos in move:
             try:
                 move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
             except (ValueError, IndexError):
-                self.__do_turn()
+                self.__do_turn(moves)
                 return
-        flag = True
         for pos in move1:
             for coord in pos:
                 if coord > 7 or coord < 0:
-                    self.__do_turn()
+                    self.__do_turn(moves)
                     return
         if move1 not in moves:
-            self.__do_turn()
+            self.__do_turn(moves)
             return
-        piece = self._board[move1[0][0]][move1[0][1]]
-        self._board[move1[0][0]][move1[0][1]] = self._EMPTY
-        piece._pos = move1[1]
-        self._board[move1[1][0]][move1[1][1]] = piece
+        self._make_move(move1)
 
     def play_game(self):
         os.system("cls")
         self._display_board()
         print("White to play")
-        while not self.__is_over():
-            self.__do_turn()
+        while True:
+            p_moves = self._players[self._toPlay]._avail_moves()
+            if self.__is_over(p_moves):
+                break
+            self.__do_turn(p_moves)
             os.system("cls")
             self._display_board()
-            self.__toPlay = (self.__toPlay + 1) % 2
-            print(f"{['White', 'Black'][self.__toPlay]} to play")
+            print(f"{['White', 'Black'][self._toPlay]} to play")
 
     def _display_board(self):
         self.__UI._display_board()
 
     def __is_move_legal(self, move):
-        return move in self._players[self.__toPlay]._avail_moves()
+        return move in self._players[self._toPlay]._avail_moves()
 
 
 class Player:
@@ -138,13 +160,26 @@ class Player:
                     if p._player == self:
                         self._pieces.append(p)
 
-    def _avail_moves(self):
+    def _avail_moves(self, careifcheck=True):
         moves = []
         for piece in self._pieces:
-            p_moves = piece._avail_moves()
+            p_moves = piece._avail_moves(careifcheck)
             for move in p_moves:
                 moves.append([piece._pos, move])
         return moves
+
+    def _in_check(self):
+        return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
+
+    def _in_checkmate(self, p_moves=[]):
+        if not p_moves:
+            p_moves = self._avail_moves()
+        return p_moves == [] and self._in_check()
+
+    def _in_stalemate(self, p_moves=[]):
+        if not p_moves:
+            p_moves = self._avail_moves()
+        return p_moves == [] and not self._in_check()
 
 
 if __name__ == "__main__":

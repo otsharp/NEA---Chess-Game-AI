@@ -97,13 +97,51 @@ class Queen(Piece):
 class Pawn(Piece):
     def __init__(self, pos, player, game):
         super().__init__(pos, player, game)
+        self._start_row = self._pos[0]
+        self._just_double = False
         if self._player == self._game._players[0]:
             self._symbol = symbols["Pw"]
-            self._dirs = [[1, 0]]
+            self._dir = [1, 0]
         else:
             self._symbol = symbols["Pb"]
-            self._dirs = [[-1, 0]]
+            self._dir = [-1, 0]
         self._max_dis = 1
+
+    def _avail_moves(self, careifcheck):
+        moves = []
+        if not self._taken:
+            if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:
+                moves.append([self._pos[0] + self._dir[0], self._pos[1]])
+            if self._pos[0] == self._start_row:
+                if self._game._board[self._pos[0] + 2*self._dir[0]][self._pos[1]] == self._game._EMPTY:
+                    moves.append([self._pos[0] + 2*self._dir[0], self._pos[1]])
+            poses1 = []
+            poses2 = []
+            if self._pos[1] < 7:
+                poses1.append([self._game._board[self._pos[0] + self._dir[0]][self._pos[1] + 1], 1])
+                poses2.append([self._game._board[self._pos[0]][self._pos[1] + 1], 1])
+            if self._pos[1] > 0:
+                poses1.append([self._game._board[self._pos[0] + self._dir[0]][self._pos[1] - 1], -1])
+                poses2.append([self._game._board[self._pos[0]][self._pos[1] - 1], -1])
+            for pos, dir in poses1:
+                if pos != self._game._EMPTY:
+                    if pos._player != self._player:
+                        moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
+            for pos, dir in poses2:
+                if pos != self._game._EMPTY:
+                    if pos._player != self._player and pos.__class__.__name__ == "Pawn":
+                            if pos._just_double:
+                                moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
+            if careifcheck:
+                pops = []
+                for i in range(len(moves)):
+                    move = moves[i]
+                    self._game._make_move([self._pos, move])
+                    if self._game._players[1 - self._game._toPlay]._in_check():
+                        pops.append(i)
+                    self._game._undo_move()
+                moves = [move for i, move in enumerate(moves) if i not in pops]
+        return moves
 
 
 if __name__ == "__main__":

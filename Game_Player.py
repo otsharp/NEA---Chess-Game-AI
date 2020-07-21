@@ -73,23 +73,46 @@ class Game:
         ]
         return b
 
-    def _in_stalemate(self, p_moves):
+    def _is_draw(self, p_moves):
         player1_cant_move = p_moves == [] and not self._players[self._toPlay]._in_check()
         player2_cant_move = (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
         only_kings = all([p.__class__.__name__ == "King" for p in self._players[0]._pieces if p._taken == False]) and all([p.__class__.__name__ == "King" for p in self._players[1]._pieces if p._taken == False])
         return any([player1_cant_move, player2_cant_move, only_kings])
 
     def __is_over(self, p_moves):
-        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._in_stalemate(p_moves)
+        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._is_draw(p_moves)
 
     def _make_move(self, move):
         piece = self._board[move[0][0]][move[0][1]]
+        if type(piece) == str:
+            print(piece)
+            print(move[0])
         new = self._board[move[1][0]][move[1][1]]
+        if piece.__class__.__name__ == "Pawn":
+            x = deepcopy(piece._just_double)
+        else:
+            x = None
+        y = False
+        if type(new) == str and piece.__class__.__name__ == "Pawn":
+            if move[1][1] != piece._pos[1]:
+                y = True
         if type(new) != str:
-            self._undo_stack.append([piece, piece._pos, new, new._taken])
+            self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x])
             new._taken = True
         else:
-            self._undo_stack.append([piece, piece._pos, None, None])
+            if y:
+                t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
+                t._taken = True
+                self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
+                self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x])
+            else:
+                self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x])
+        for p in piece._player._pieces:
+            if p.__class__.__name__ == "Pawn":
+                p._just_double = False
+        if piece.__class__.__name__ == "Pawn":
+            if abs(piece._pos[0] - move[1][0]) == 2:
+                piece._just_double = True
         self._board[move[0][0]][move[0][1]] = self._EMPTY
         piece._pos = move[1]
         self._board[move[1][0]][move[1][1]] = piece
@@ -97,8 +120,10 @@ class Game:
 
     def _undo_move(self):
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
-        piece, piece_dest, old, taken = self._undo_stack.pop()
+        piece, piece_dest, old, taken, double = self._undo_stack.pop()
         piece._pos = piece_dest
+        if piece.__class__.__name__ == "Pawn":
+            piece._just_double = double
         if old is not None:
             old._taken = False
         for i in range(2):
@@ -130,7 +155,7 @@ class Game:
             os.system("cls")
             self._display_board()
             print(f"{['White', 'Black'][self._toPlay]} to play")
-        if self._in_stalemate(p_moves):
+        if self._is_draw(p_moves):
             print("Stalemate")
         else:
             print(f"{['White', 'Black'][1 - self._toPlay]} wins")

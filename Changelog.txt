@@ -27,16 +27,20 @@ V1.3
 V2.1
 - Game.__get_settings() now calls its UI._get_settings(), with the code previously there being in the Terminal._get_settings()
 - Added the numbers and letters on right and below of the board, to match the left and top
-- Implemented Player._in_check, Player._in_checkmate() and Player._in_stalemate(), with the only stalemate rule being player can't move and isn't in check
+- Implemented Player._in_check, Player._in_checkmate() and Player._is_draw(), with the only rule being stalemate
 - Modified Piece._avail_moves() to take a careifcheck argument, and if true, ensure moves returned don't make, or keep, their king in check
 - Added Game._make_move(move) and Game._undo_move(), including the Game._undo_stack attribute
-- Made Game.__is_over() actually check if the game is over according to the current checkmate and stalemate conditions
+- Made Game.__is_over() actually check if the game is over according to the current checkmate and draw conditions
 V2.2
 - Fixed Terminal._get_settings()
 - Implemented the AI class
 - Moved move choice to Player / AI class, not Game.__do_turn()
 - Made AI pick a random move from current legal moves
-- Moved stalemate checks from Player class to Game class
-- Stalemate checks for just 2 kings left
+- Moved draw checks from Player class to Game class
+- Draw checks for just 2 kings left
 - Added message to game end to say who won
 - Can play a full game against the AI (picking random moves), according to current rules
+V3.1
+- Pawns now take diagonally not forwards, and can move forwards 2 on their first move
+- Pawns can now en passant
+- Corrected use of draw vs stalemate

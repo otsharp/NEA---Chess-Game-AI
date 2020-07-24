@@ -44,3 +44,5 @@ V3.1
 - Pawns now take diagonally not forwards, and can move forwards 2 on their first move
 - Pawns can now en passant
 - Corrected use of draw vs stalemate
+V3.2
+- Pawns can now be promoted if they reach rank 8

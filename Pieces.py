@@ -110,13 +110,18 @@ class Pawn(Piece):
     def _avail_moves(self, careifcheck):
         moves = []
         if not self._taken:
-            if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:
-                moves.append([self._pos[0] + self._dir[0], self._pos[1]])
+            try:
+                if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:
+                    moves.append([self._pos[0] + self._dir[0], self._pos[1]])
+            except:
+                print("Quitting")
+                print(self._pos, self._dir)
+                quit()
             if self._pos[0] == self._start_row:
                 if self._game._board[self._pos[0] + 2*self._dir[0]][self._pos[1]] == self._game._EMPTY:
                     moves.append([self._pos[0] + 2*self._dir[0], self._pos[1]])
-            poses1 = []
-            poses2 = []
+            poses1 = []  # diagonal taking
+            poses2 = []  # en passant
             if self._pos[1] < 7:
                 poses1.append([self._game._board[self._pos[0] + self._dir[0]][self._pos[1] + 1], 1])
                 poses2.append([self._game._board[self._pos[0]][self._pos[1] + 1], 1])
@@ -132,15 +137,26 @@ class Pawn(Piece):
                     if pos._player != self._player and pos.__class__.__name__ == "Pawn":
                             if pos._just_double:
                                 moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
+            pops = []
+            extra = []
+            for i, move in enumerate(moves):
+                if move[0] in [0, 7]:  # promotion
+                    pops.append(i)
+                    for prom in [['Q'], ['B', 'K', 'R', 'Q']][careifcheck]:
+                        extra.append([move[0], move[1], prom])
+            for m in extra:
+                moves.append(m)
+            moves = [move for i, move in enumerate(moves) if i not in pops]
+            pops = []
             if careifcheck:
-                pops = []
                 for i in range(len(moves)):
                     move = moves[i]
                     self._game._make_move([self._pos, move])
                     if self._game._players[1 - self._game._toPlay]._in_check():
                         pops.append(i)
                     self._game._undo_move()
-                moves = [move for i, move in enumerate(moves) if i not in pops]
+            moves = [move for i, move in enumerate(moves) if i not in pops]
+        #print(f"Moves = {moves}")
         return moves
 
 

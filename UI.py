@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import os
 #from Chess import usage
 
 
@@ -38,6 +39,7 @@ class Terminal(UI):
         super().__init__(game)
 
     def _display_board(self):
+        os.system("cls")
         board = self._game._board
         x = "  "
         for i in range(len(board)):
@@ -58,7 +60,7 @@ class Terminal(UI):
         print(x)
 
     def _get_move(self):
-        return None
+        return input("Enter your move, old position then new position: ").split(" ")
 
     def _get_settings(self):
         s = []

@@ -3,13 +3,14 @@ import os
 from copy import deepcopy
 import time
 import random
+from statistics import mean
 
 
 class Game:
     def __init__(self, UItype):
         self._EMPTY = "_"
         self._SIZE = 8
-        self.__UI = UItype(self)
+        self._UI = UItype(self)
         self.__settings = self.__get_settings()
         self._undo_stack = []
         if self.__settings[0] == "Y":
@@ -26,7 +27,7 @@ class Game:
             player._2nd_init()
 
     def __get_settings(self):
-        return self.__UI._get_settings()
+        return self._UI._get_settings()
 
     def __reset_board(self):
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
@@ -84,43 +85,65 @@ class Game:
 
     def _make_move(self, move):
         piece = self._board[move[0][0]][move[0][1]]
-        if type(piece) == str:
-            print(piece)
-            print(move[0])
-        new = self._board[move[1][0]][move[1][1]]
         if piece.__class__.__name__ == "Pawn":
             x = deepcopy(piece._just_double)
         else:
             x = None
-        y = False
-        if type(new) == str and piece.__class__.__name__ == "Pawn":
-            if move[1][1] != piece._pos[1]:
-                y = True
-        if type(new) != str:
-            self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x])
-            new._taken = True
-        else:
-            if y:
-                t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
-                t._taken = True
-                self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
-                self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x])
+        if len(move[1]) == 3:  # promotion
+            new = self._board[move[1][0]][move[1][1]]
+            if type(new) != str:
+                n = deepcopy(new._taken)
+                new._taken = True
+                h = new
             else:
-                self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x])
-        for p in piece._player._pieces:
-            if p.__class__.__name__ == "Pawn":
-                p._just_double = False
-        if piece.__class__.__name__ == "Pawn":
-            if abs(piece._pos[0] - move[1][0]) == 2:
-                piece._just_double = True
-        self._board[move[0][0]][move[0][1]] = self._EMPTY
-        piece._pos = move[1]
-        self._board[move[1][0]][move[1][1]] = piece
+                n = None
+                h = None
+            p = deepcopy(piece._pos)
+            piece._pos = move[1][:2]
+            self._board[move[1][0]][move[1][1]] = piece
+            piece._taken = True
+            prom = [Bishop, Knight, Rook, Queen][['B', 'K', 'R', 'Q'].index(move[1][2].upper())](move[1][:2], self._players[self._toPlay], self)
+            self._players[self._toPlay]._pieces.append(prom)
+            self._undo_stack.append([piece, p, h, n, x, prom])
+            self._board[move[0][0]][move[0][1]] = self._EMPTY
+            self._board[move[1][0]][move[1][1]] = prom
+        else:
+            if type(piece) == str:
+                print(piece)
+                print(move[0])
+            new = self._board[move[1][0]][move[1][1]]
+            y = False
+            if type(new) == str and piece.__class__.__name__ == "Pawn":
+                if move[1][1] != piece._pos[1]:
+                    y = True
+            if type(new) != str:
+                self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x, None])
+                new._taken = True
+            else:
+                if y:
+                    t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
+                    t._taken = True
+                    self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
+                    self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x, None])
+                else:
+                    self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x, None])
+            for p in piece._player._pieces:
+                if p.__class__.__name__ == "Pawn":
+                    p._just_double = False
+            if piece.__class__.__name__ == "Pawn":
+                if abs(piece._pos[0] - move[1][0]) == 2:
+                    piece._just_double = True
+            self._board[move[0][0]][move[0][1]] = self._EMPTY
+            self._board[move[1][0]][move[1][1]] = piece
+            piece._pos = move[1][:2]
         self._toPlay = (self._toPlay + 1) % 2
 
     def _undo_move(self):
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
-        piece, piece_dest, old, taken, double = self._undo_stack.pop()
+        piece, piece_dest, old, taken, double, prom = self._undo_stack.pop()
+        if prom is not None:
+            piece._taken = False
+            self._players[1 - self._toPlay]._pieces.remove(prom)
         piece._pos = piece_dest
         if piece.__class__.__name__ == "Pawn":
             piece._just_double = double
@@ -137,31 +160,32 @@ class Game:
         move = self._players[self._toPlay]._get_move(moves)
         if move == "undo":
             self._undo_move()
-            os.system("cls")
             self._display_board()
             self.__do_turn(moves)
             return
         self._make_move(move)
 
     def play_game(self):
-        os.system("cls")
+        times = []
         self._display_board()
         print("White to play")
         while True:
+            t0 = time.time()
             p_moves = self._players[self._toPlay]._avail_moves()
             if self.__is_over(p_moves):
                 break
             self.__do_turn(p_moves)
-            os.system("cls")
             self._display_board()
             print(f"{['White', 'Black'][self._toPlay]} to play")
+            times.append(time.time() - t0)
+            print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
         if self._is_draw(p_moves):
-            print("Stalemate")
+            print("Draw")
         else:
             print(f"{['White', 'Black'][1 - self._toPlay]} wins")
 
     def _display_board(self):
-        self.__UI._display_board()
+        self._UI._display_board()
 
     def __is_move_legal(self, move):
         return move in self._players[self._toPlay]._avail_moves()
@@ -189,9 +213,9 @@ class Player:
         return moves
 
     def _get_move(self, moves):
-        move = input("Enter your move, old position then new position: ").split(" ")
+        move = self._game._UI._get_move()
         move1 = []
-        for pos in move:
+        for pos in move[:2]:
             try:
                 move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
             except (ValueError, IndexError) as e:
@@ -202,13 +226,15 @@ class Player:
                 if coord > 7 or coord < 0:
                     print("Out of bounds")
                     return self._get_move(moves)
+        if len(move) == 3:
+            move1[1].append(move[2].upper())
         if move1 not in moves:
             print("Not valid move")
             return self._get_move(moves)
         return move1
 
     def _in_check(self):
-        return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
+        return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1][:2] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
 
     def _in_checkmate(self, p_moves=[]):
         if not p_moves:
@@ -223,6 +249,9 @@ class AI(Player):
     def _get_move(self, moves):
         print(moves)
         return random.choice(moves)
+
+    def _get_prom_choice(self):
+        return 3
 
 
 if __name__ == "__main__":

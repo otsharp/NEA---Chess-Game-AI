@@ -13,6 +13,7 @@ class Game:
         self._UI = UItype(self)
         self.__settings = self.__get_settings()
         self._undo_stack = []
+        self._played = []
         if self.__settings[0] == "Y":
             self._players = [Player(self), AI(self)]
             if self.__settings[1] == "Y":
@@ -84,63 +85,96 @@ class Game:
         return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._is_draw(p_moves)
 
     def _make_move(self, move):
+        self._played.append([[chr(move[0][1] + 97), move[0][0]+1], [chr(move[1][1] + 97), move[1][0]+1]])
         piece = self._board[move[0][0]][move[0][1]]
         if piece.__class__.__name__ == "Pawn":
             x = deepcopy(piece._just_double)
         else:
             x = None
-        if len(move[1]) == 3:  # promotion
-            new = self._board[move[1][0]][move[1][1]]
-            if type(new) != str:
-                n = deepcopy(new._taken)
-                new._taken = True
-                h = new
+        if piece.__class__.__name__ == "King" and abs(move[0][1] - move[1][1]) == 2:  # castling
+            king = self._board[move[0][0]][move[0][1]]
+            if move[1][1] > move[0][1]:
+                rook = self._board[move[0][0]][7]
             else:
-                n = None
-                h = None
-            p = deepcopy(piece._pos)
-            piece._pos = move[1][:2]
-            self._board[move[1][0]][move[1][1]] = piece
-            piece._taken = True
-            prom = [Bishop, Knight, Rook, Queen][['B', 'K', 'R', 'Q'].index(move[1][2].upper())](move[1][:2], self._players[self._toPlay], self)
-            self._players[self._toPlay]._pieces.append(prom)
-            self._undo_stack.append([piece, p, h, n, x, prom])
-            self._board[move[0][0]][move[0][1]] = self._EMPTY
-            self._board[move[1][0]][move[1][1]] = prom
+                rook = self._board[move[0][0]][0]
+            self._undo_stack.append([king, deepcopy(king._pos), None, None, None, None, False, rook])
+            self._board[king._pos[0]][king._pos[1]] = self._EMPTY
+            self._board[rook._pos[0]][rook._pos[1]] = self._EMPTY
+            king._pos = move[1]
+            rook._pos = [move[1][0], move[1][1] + [1, -1][move[1][1] > move[0][1]]]
+            self._board[king._pos[0]][king._pos[1]] = king
+            self._board[rook._pos[0]][rook._pos[1]] = rook
+            king._moved = True
+            rook._moved = True
         else:
-            if type(piece) == str:
-                print(piece)
-                print(move[0])
-            new = self._board[move[1][0]][move[1][1]]
-            y = False
-            if type(new) == str and piece.__class__.__name__ == "Pawn":
-                if move[1][1] != piece._pos[1]:
-                    y = True
-            if type(new) != str:
-                self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x, None])
-                new._taken = True
-            else:
-                if y:
-                    t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
-                    t._taken = True
-                    self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
-                    self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x, None])
+            if len(move[1]) == 3:  # promotion
+                new = self._board[move[1][0]][move[1][1]]
+                if type(new) != str:
+                    n = deepcopy(new._taken)
+                    new._taken = True
+                    h = new
                 else:
-                    self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x, None])
-            for p in piece._player._pieces:
-                if p.__class__.__name__ == "Pawn":
-                    p._just_double = False
-            if piece.__class__.__name__ == "Pawn":
-                if abs(piece._pos[0] - move[1][0]) == 2:
-                    piece._just_double = True
+                    n = None
+                    h = None
+                p = deepcopy(piece._pos)
+                self._board[move[1][0]][move[1][1]] = piece
+                piece._taken = True
+                prom = [Bishop, Knight, Rook, Queen][['B', 'K', 'R', 'Q'].index(move[1][2].upper())](move[1][:2], self._players[self._toPlay], self)
+                self._players[self._toPlay]._pieces.append(prom)
+                self._undo_stack.append([piece, p, h, n, x, prom, None, None])
+                piece = prom
+            else:
+                if type(piece) == str:
+                    print(piece)
+                    print(move[0])
+                new = self._board[move[1][0]][move[1][1]]
+                y = False
+                if type(new) == str and piece.__class__.__name__ == "Pawn":
+                    if move[1][1] != piece._pos[1]:
+                        y = True
+                if type(new) != str:
+                    if piece.__class__.__name__ in ['King', 'Rook']:
+                        has_moved = deepcopy(piece._moved)
+                        piece._moved = True
+                    else:
+                        has_moved = None
+                    self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x, None, has_moved, None])
+                    new._taken = True
+                else:
+                    if y:
+                        t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
+                        t._taken = True
+                        self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
+                        self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x, None, None, None])
+                    else:
+                        if piece.__class__.__name__ in ['King', 'Rook']:
+                            has_moved = deepcopy(piece._moved)
+                            piece._moved = True
+                        else:
+                            has_moved = None
+                        self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x, None, has_moved, None])
             self._board[move[0][0]][move[0][1]] = self._EMPTY
             self._board[move[1][0]][move[1][1]] = piece
             piece._pos = move[1][:2]
+        for p in piece._player._pieces:
+            if p.__class__.__name__ == "Pawn":
+                p._just_double = False
+        if piece.__class__.__name__ == "Pawn":
+            if abs(piece._pos[0] - move[1][0]) == 2:
+                piece._just_double = True
         self._toPlay = (self._toPlay + 1) % 2
 
     def _undo_move(self):
+        self._played.pop()
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
-        piece, piece_dest, old, taken, double, prom = self._undo_stack.pop()
+        piece, piece_dest, old, taken, double, prom, has_moved, rook = self._undo_stack.pop()
+        if has_moved is not None:
+            piece._moved = has_moved
+        if rook is not None:
+            rook._moved = False
+            self._board[rook._pos[0]][rook._pos[1]] = self._EMPTY
+            rook._pos = deepcopy(rook._start_pos)
+            self._board[rook._pos[0]][rook._pos[1]] = rook
         if prom is not None:
             piece._taken = False
             self._players[1 - self._toPlay]._pieces.remove(prom)
@@ -160,10 +194,8 @@ class Game:
         move = self._players[self._toPlay]._get_move(moves)
         if move == "undo":
             self._undo_move()
-            self._display_board()
-            self.__do_turn(moves)
-            return
-        self._make_move(move)
+        else:
+            self._make_move(move)
 
     def play_game(self):
         times = []
@@ -214,6 +246,8 @@ class Player:
 
     def _get_move(self, moves):
         move = self._game._UI._get_move()
+        if move[0] == "undo":
+            return move[0]
         move1 = []
         for pos in move[:2]:
             try:

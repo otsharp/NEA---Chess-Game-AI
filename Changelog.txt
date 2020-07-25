@@ -46,3 +46,5 @@ V3.1
 - Corrected use of draw vs stalemate
 V3.2
 - Pawns can now be promoted if they reach rank 8
+V3.3
+- Castling implemented

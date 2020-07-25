@@ -40,6 +40,8 @@ class Terminal(UI):
 
     def _display_board(self):
         os.system("cls")
+        #for turn in self._game._played:
+            #print(turn)
         board = self._game._board
         x = "  "
         for i in range(len(board)):

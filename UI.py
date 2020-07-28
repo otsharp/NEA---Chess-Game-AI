@@ -19,6 +19,10 @@ class UI(ABC):
     def _get_settings(self):
         raise NotImplementedError
 
+    @abstractmethod
+    def _get_draw_decision(self, player):
+        raise NotImplementedError
+
 
 class GUI(UI):
     def __init__(self, game):
@@ -33,6 +37,9 @@ class GUI(UI):
     def _get_settings(self):
         return ["N"]
 
+    def _get_draw_decision(self, player):
+        return True
+
 
 class Terminal(UI):
     def __init__(self, game):
@@ -40,8 +47,6 @@ class Terminal(UI):
 
     def _display_board(self):
         os.system("cls")
-        #for turn in self._game._played:
-            #print(turn)
         board = self._game._board
         x = "  "
         for i in range(len(board)):
@@ -78,6 +83,12 @@ class Terminal(UI):
             y = None
         s.append(y)
         return s
+
+    def _get_draw_decision(self, player):
+        x = ""
+        while x not in ['Y', 'N']:
+            x = input(f"{['White', 'Black'][player]}, would you like to draw? (Y/N): ").upper()
+        return x == "Y"
 
 
 if __name__ == "__main__":

@@ -73,6 +73,7 @@ class Bishop(Piece):
             self._symbol = symbols["Bb"]
         self._dirs = [[1, 1], [-1, -1], [1, -1], [-1, 1]]
         self._max_dis = 999
+        self._colour = deepcopy((self._pos[0] + self._pos[1] + 1) % 2)
 
 
 class King(Piece):
@@ -90,32 +91,33 @@ class King(Piece):
         moves = super()._avail_moves(careifcheck)
         new_moves = []
         rooks = [p for p in self._player._pieces if p.__class__.__name__ == "Rook"]
-        if self._moved == False and all([r._moved == False for r in rooks]):
+        if self._moved == False:
             #print("Can castle step 1")
             for rook in rooks:
-                empty_flag = True
-                dest_col = rook._pos[1]
-                col = self._pos[1]
-                diff = abs(dest_col - col)
-                dir = [-1, 1][dest_col > col]
-                for i in range(1, diff):
-                    #print(i)
-                    new = [self._pos[0], self._pos[1] + i*dir]
-                    if self._game._board[new[0]][new[1]] != self._game._EMPTY:
-                        empty_flag = False
-                        break
-                if empty_flag:
-                    check_flag = True
-                    for i in range(1, 3):
-                        new = [self._pos[0], self._pos[1] + i * dir]
-                        self._game._make_move([self._pos, new])
-                        if self._game._players[1 - self._game._toPlay]._in_check():
-                            check_flag = False
-                        self._game._undo_move()
-                        if not check_flag:
+                if rook._moved == False and rook._taken == False:
+                    empty_flag = True
+                    dest_col = rook._pos[1]
+                    col = self._pos[1]
+                    diff = abs(dest_col - col)
+                    dir = [-1, 1][dest_col > col]
+                    for i in range(1, diff):
+                        #print(i)
+                        new = [self._pos[0], self._pos[1] + i*dir]
+                        if self._game._board[new[0]][new[1]] != self._game._EMPTY:
+                            empty_flag = False
                             break
-                    if check_flag:
-                        new_moves.append([self._pos[0], self._pos[1] + dir*2])
+                    if empty_flag:
+                        check_flag = True
+                        for i in range(1, 3):
+                            new = [self._pos[0], self._pos[1] + (i * dir)]
+                            self._game._make_move([self._pos, new])
+                            if self._game._players[1 - self._game._toPlay]._in_check():
+                                check_flag = False
+                            self._game._undo_move()
+                            if not check_flag:
+                                break
+                        if check_flag:
+                            new_moves.append([self._pos[0], self._pos[1] + dir*2])
         for m in new_moves:
             moves.append(m)
         return moves

@@ -4,6 +4,22 @@ from copy import deepcopy
 import time
 import random
 from statistics import mean
+from collections import Counter
+
+
+class StringList(object):
+
+    def __init__(self, val):
+        self.val = val
+
+    def __hash__(self):
+        return hash(str(self.val))
+
+    def __repr__(self):
+        return str(self.val)
+
+    def __eq__(self, other):
+        return str(self.val) == str(other.val)
 
 
 class Game:
@@ -14,6 +30,9 @@ class Game:
         self.__settings = self.__get_settings()
         self._undo_stack = []
         self._played = []
+        self._mutual = False
+        self._repetitions = []
+        self._move_count = 0
         if self.__settings[0] == "Y":
             self._players = [Player(self), AI(self)]
             if self.__settings[1] == "Y":
@@ -76,19 +95,49 @@ class Game:
         return b
 
     def _is_draw(self, p_moves):
-        player1_cant_move = p_moves == [] and not self._players[self._toPlay]._in_check()
-        player2_cant_move = (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
-        only_kings = all([p.__class__.__name__ == "King" for p in self._players[0]._pieces if p._taken == False]) and all([p.__class__.__name__ == "King" for p in self._players[1]._pieces if p._taken == False])
-        return any([player1_cant_move, player2_cant_move, only_kings])
+        stalemate = p_moves == [] and not self._players[self._toPlay]._in_check() or (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
+
+        player1_pieces = sorted([p.__class__.__name__ for p in self._players[0]._pieces if p._taken == False])
+        player2_pieces = sorted([p.__class__.__name__ for p in self._players[1]._pieces if p._taken == False])
+        pieces = sorted([player1_pieces, player2_pieces], key=len)
+        impossibility = pieces in [[["King"], ["King"]], [["King"], ["Bishop", "King"]], [["King"], ["King", "Knight"]]]
+        if pieces == [["Bishop", "King"], ["Bishop", "King"]]:
+            if [p._colour for p in self._players[0]._pieces if (p._taken == False and p.__class__.__name__ == "Bishop")][0] != [p._colour for p in self._players[1]._pieces if (p._taken == False and p.__class__.__name__ == "Bishop")][0]:
+                impossibility = True
+
+        c = Counter(self._repetitions)
+        x = max(c.values())
+        repetition = False
+        if x >= 5:
+            repetition = True
+        elif x >= 3:
+            if self._UI._get_draw_decision(self._toPlay):
+                repetition = self._UI._get_draw_decision(1 - self._toPlay)
+        move_limit = False
+        if self._move_count >= 75:
+            move_limit = True
+        elif self._move_count >= 50:
+            if self._UI._get_draw_decision(self._toPlay):
+                move_limit = self._UI._get_draw_decision(1 - self._toPlay)
+        agreement = self._mutual
+        return stalemate or impossibility or repetition or move_limit or agreement
 
     def __is_over(self, p_moves):
-        return self._players[self._toPlay]._in_checkmate(p_moves) or self._players[1 - self._toPlay]._in_checkmate() or self._is_draw(p_moves)
+        if self._players[self._toPlay]._in_checkmate(p_moves):
+            return f"{['White', 'Black'][1 - self._toPlay]} wins"
+        if self._players[1 - self._toPlay]._in_checkmate(p_moves):
+            return f"{['White', 'Black'][self._toPlay]} wins"
+        if  self._is_draw(p_moves):
+            return "Draw"
+        return None
 
     def _make_move(self, move):
+        mc = deepcopy(self._move_count)
         self._played.append([[chr(move[0][1] + 97), move[0][0]+1], [chr(move[1][1] + 97), move[1][0]+1]])
         piece = self._board[move[0][0]][move[0][1]]
         if piece.__class__.__name__ == "Pawn":
             x = deepcopy(piece._just_double)
+            self._move_count = -1
         else:
             x = None
         if piece.__class__.__name__ == "King" and abs(move[0][1] - move[1][1]) == 2:  # castling
@@ -97,7 +146,7 @@ class Game:
                 rook = self._board[move[0][0]][7]
             else:
                 rook = self._board[move[0][0]][0]
-            self._undo_stack.append([king, deepcopy(king._pos), None, None, None, None, False, rook])
+            self._undo_stack.append([king, deepcopy(king._pos), None, None, None, None, False, rook, mc])
             self._board[king._pos[0]][king._pos[1]] = self._EMPTY
             self._board[rook._pos[0]][rook._pos[1]] = self._EMPTY
             king._pos = move[1]
@@ -112,6 +161,7 @@ class Game:
                 if type(new) != str:
                     n = deepcopy(new._taken)
                     new._taken = True
+                    self._move_count = -1
                     h = new
                 else:
                     n = None
@@ -121,7 +171,7 @@ class Game:
                 piece._taken = True
                 prom = [Bishop, Knight, Rook, Queen][['B', 'K', 'R', 'Q'].index(move[1][2].upper())](move[1][:2], self._players[self._toPlay], self)
                 self._players[self._toPlay]._pieces.append(prom)
-                self._undo_stack.append([piece, p, h, n, x, prom, None, None])
+                self._undo_stack.append([piece, p, h, n, x, prom, None, None, mc])
                 piece = prom
             else:
                 if type(piece) == str:
@@ -133,26 +183,27 @@ class Game:
                     if move[1][1] != piece._pos[1]:
                         y = True
                 if type(new) != str:
+                    self._move_count = -1
                     if piece.__class__.__name__ in ['King', 'Rook']:
                         has_moved = deepcopy(piece._moved)
                         piece._moved = True
                     else:
                         has_moved = None
-                    self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x, None, has_moved, None])
+                    self._undo_stack.append([piece, deepcopy(piece._pos), new, deepcopy(new._taken), x, None, has_moved, None, mc])
                     new._taken = True
                 else:
                     if y:
                         t = self._board[move[1][0] - piece._dir[0]][move[1][1]]
                         t._taken = True
                         self._board[move[1][0] - piece._dir[0]][move[1][1]] = self._EMPTY
-                        self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x, None, None, None])
+                        self._undo_stack.append([piece, deepcopy(piece._pos), t, deepcopy(t._taken), x, None, None, None, mc])
                     else:
                         if piece.__class__.__name__ in ['King', 'Rook']:
                             has_moved = deepcopy(piece._moved)
                             piece._moved = True
                         else:
                             has_moved = None
-                        self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x, None, has_moved, None])
+                        self._undo_stack.append([piece, deepcopy(piece._pos), None, None, x, None, has_moved, None, mc])
             self._board[move[0][0]][move[0][1]] = self._EMPTY
             self._board[move[1][0]][move[1][1]] = piece
             piece._pos = move[1][:2]
@@ -162,12 +213,16 @@ class Game:
         if piece.__class__.__name__ == "Pawn":
             if abs(piece._pos[0] - move[1][0]) == 2:
                 piece._just_double = True
+        self._move_count += 1
         self._toPlay = (self._toPlay + 1) % 2
 
-    def _undo_move(self):
+    def _undo_move(self, main=False):
         self._played.pop()
+        if main:
+            self._repetitions.pop()
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
-        piece, piece_dest, old, taken, double, prom, has_moved, rook = self._undo_stack.pop()
+        piece, piece_dest, old, taken, double, prom, has_moved, rook, mc = self._undo_stack.pop()
+        self._move_count = mc
         if has_moved is not None:
             piece._moved = has_moved
         if rook is not None:
@@ -193,7 +248,10 @@ class Game:
     def __do_turn(self, moves):
         move = self._players[self._toPlay]._get_move(moves)
         if move == "undo":
-            self._undo_move()
+            self._undo_move(True)
+        elif move == "draw":
+            if self._UI._get_draw_decision(1 - self._toPlay):
+                self._mutual = True
         else:
             self._make_move(move)
 
@@ -204,17 +262,18 @@ class Game:
         while True:
             t0 = time.time()
             p_moves = self._players[self._toPlay]._avail_moves()
-            if self.__is_over(p_moves):
+            bn = [[p if type(p) == str else p._symbol for p in row] for row in self._board]
+            self._repetitions.append(StringList([bn, deepcopy(p_moves)]))
+            over = self.__is_over(p_moves)
+            if over is not None:
                 break
             self.__do_turn(p_moves)
             self._display_board()
+            #print(f"Move count = {self._move_count}")
             print(f"{['White', 'Black'][self._toPlay]} to play")
             times.append(time.time() - t0)
-            print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
-        if self._is_draw(p_moves):
-            print("Draw")
-        else:
-            print(f"{['White', 'Black'][1 - self._toPlay]} wins")
+            #print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
+        print(over)
 
     def _display_board(self):
         self._UI._display_board()
@@ -246,7 +305,7 @@ class Player:
 
     def _get_move(self, moves):
         move = self._game._UI._get_move()
-        if move[0] == "undo":
+        if move[0] in ["undo", "draw"]:
             return move[0]
         move1 = []
         for pos in move[:2]:

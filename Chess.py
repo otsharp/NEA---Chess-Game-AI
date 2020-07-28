@@ -3,6 +3,7 @@ from sys import argv
 from Game_Player import Game
 from UI import GUI, Terminal
 from Pieces import Rook
+from threading import Thread
 
 
 def usage():
@@ -19,9 +20,11 @@ if __name__ == "__main__":
         usage()
     elif argv[1] == "g":
         game = Game(GUI)
+        play_game_thread = Thread(target=game.play_game, daemon=True)
+        play_game_thread.start()
+        game._UI._root.mainloop()
     elif argv[1] == "t":
         game = Game(Terminal)
+        game.play_game()
     else:
         usage()
-
-    game.play_game()

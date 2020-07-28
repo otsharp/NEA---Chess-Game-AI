@@ -33,15 +33,8 @@ class Game:
         self._mutual = False
         self._repetitions = []
         self._move_count = 0
-        if self.__settings[0] == "Y":
-            self._players = [Player(self), AI(self)]
-            if self.__settings[1] == "Y":
-                self._toPlay = 0
-            else:
-                self._toPlay = 1
-        else:
-            self._players = [Player(self), Player(self)]
-            self._toPlay = 0
+        self._toPlay = 0
+        self._players = [[Player, AI][self.__settings[0]](self), [Player, AI][self.__settings[1]](self)]
         self._board = self.__reset_board()
         for player in self._players:
             player._2nd_init()
@@ -340,7 +333,6 @@ class AI(Player):
         super().__init__(game)
 
     def _get_move(self, moves):
-        print(moves)
         return random.choice(moves)
 
     def _get_prom_choice(self):

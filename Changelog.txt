@@ -48,7 +48,6 @@ V3.2
 - Pawns can now be promoted if they reach rank 8
 V3.3
 - Castling implemented
-
 V3.4
 - Rest of the FIDE draw rules added
 	- 3/5 fold repetition rule
@@ -58,3 +57,5 @@ V3.4
 		- King vs King + Knight
 		- King + Bishop vs King + Bishop of other colour
 	- Mutual agreement
+V3.5
+- Added option for playing AI vs AI

@@ -71,17 +71,11 @@ class Terminal(UI):
 
     def _get_settings(self):
         s = []
-        x = ""
-        while x not in ["Y", "N"]:
-            x = input("Do you want to play an AI? (Y/N): ").upper()
-        s.append(x)
-        if x == "Y":
-            y = ""
-            while y not in ["Y", "N"]:
-                y = input("Do you want to go first? (Y/N): ").upper()
-        else:
-            y = None
-        s.append(y)
+        for i in range(2):
+            x = ""
+            while x not in ["Y", "N"]:
+                x = input(f"Is {['White', 'Black'][i]} an AI? (Y/N): ").upper()
+            s.append(x == "Y")
         return s
 
     def _get_draw_decision(self, player):

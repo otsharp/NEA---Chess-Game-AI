@@ -113,15 +113,26 @@ class Game:
             if self._UI._get_draw_decision(self._toPlay):
                 move_limit = self._UI._get_draw_decision(1 - self._toPlay)
         agreement = self._mutual
-        return stalemate or impossibility or repetition or move_limit or agreement
+        if stalemate:
+            return "Stalemate"
+        if impossibility:
+            return "Impossibility"
+        if repetition:
+            return "Repetition"
+        if move_limit:
+            return "Move limit"
+        if agreement:
+            return "Agreement"
+        return False
 
     def __is_over(self, p_moves):
         if self._players[self._toPlay]._in_checkmate(p_moves):
             return f"{['White', 'Black'][1 - self._toPlay]} wins"
         if self._players[1 - self._toPlay]._in_checkmate(p_moves):
             return f"{['White', 'Black'][self._toPlay]} wins"
-        if  self._is_draw(p_moves):
-            return "Draw"
+        x = self._is_draw(p_moves)
+        if x:
+            return x
         return None
 
     def _make_move(self, move):
@@ -263,7 +274,7 @@ class Game:
             self.__do_turn(p_moves)
             self._display_board()
             #print(f"Move count = {self._move_count}")
-            print(f"{['White', 'Black'][self._toPlay]} to play")
+            #print(f"{['White', 'Black'][self._toPlay]} to play")
             times.append(time.time() - t0)
             #print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
         print(over)
@@ -279,7 +290,6 @@ class Player:
     def __init__(self, game):
         self._pieces = []
         self._game = game
-
 
     def _2nd_init(self):
         for row in self._game._board:
@@ -297,7 +307,7 @@ class Player:
         return moves
 
     def _get_move(self, moves):
-        move = self._game._UI._get_move()
+        move = self._game._UI._get_move(moves)
         if move[0] in ["undo", "draw"]:
             return move[0]
         move1 = []

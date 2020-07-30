@@ -62,3 +62,6 @@ V3.5
 V3.6
 - A GUI now displays the board state
 - A player can click on a piece and intended destination, enlarging the selected piece, and moving it if it is a legal move
+V3.7
+- Can select between player and ai for white and black
+- Allowed pawns to be promoted by adding selection UI for piece choice

@@ -8,7 +8,6 @@ from collections import Counter
 
 
 class StringList(object):
-
     def __init__(self, val):
         self.val = val
 
@@ -125,7 +124,7 @@ class Game:
             return "Agreement"
         return False
 
-    def __is_over(self, p_moves):
+    def _is_over(self, p_moves):
         if self._players[self._toPlay]._in_checkmate(p_moves):
             return f"{['White', 'Black'][1 - self._toPlay]} wins"
         if self._players[1 - self._toPlay]._in_checkmate(p_moves):
@@ -270,11 +269,12 @@ class Game:
             bn = [[p if type(p) == str else p._symbol for p in row] for row in self._board]
             self._repetitions.append(StringList([bn, deepcopy(p_moves)]))
             self.__do_turn(p_moves)
-            self._UI._text_vars["to play"].set(f"{['White', 'Black'][self._toPlay]} to play")
+            if self._UI.__class__.__name__ == "GUI":
+                self._UI._text_vars["to play"].set(f"{['White', 'Black'][self._toPlay]} to play")
             self._display_board()
             # self._UI._notify(f"{['White', 'Black'][self._toPlay]} to play")
             p_moves = self._players[self._toPlay]._avail_moves()
-            over = self.__is_over(p_moves)
+            over = self._is_over(p_moves)
             times.append(time.time() - t0)
             # print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
         self._UI._notify(over)
@@ -285,6 +285,19 @@ class Game:
 
     def __is_move_legal(self, move):
         return move in self._players[self._toPlay]._avail_moves()
+
+    def _get_score(self):
+        score = 0
+        vals = {"Pawn": 1, "Bishop": 3, "Knight": 3, "Rook": 5, "Queen": 8, "King": 999}
+        for i in range(2):
+            for piece in self._players[i]._pieces:
+                if not piece._taken:
+                    val = vals[piece.__class__.__name__]
+                    if i == 0:
+                        score += val
+                    else:
+                        score -= val
+        return score
 
 
 class Player:
@@ -345,12 +358,62 @@ class Player:
 class AI(Player):
     def __init__(self, game):
         super().__init__(game)
+        self._type = "MinMax"
+        self._max_depth = 2
 
     def _get_move(self, moves):
+        if self._type == "MinMax":
+            return [self.__max_move(moves), self.__min_move(moves)][self._game._players.index(self)][1]
         return random.choice(moves)
 
     def _get_prom_choice(self):
         return 3
+
+    def __max_move(self, moves, a=-9999, b=9999, depth=0):
+        depth += 1
+        if depth > self._max_depth:
+            return self._game._get_score(), None
+        best_score = -9999
+        score = 9999
+        for move in moves:
+            self._game._make_move(move)
+            new_moves = self._game._players[self._game._toPlay]._avail_moves()
+            if self._game._is_over(new_moves):
+                score = self._game._get_score()
+            else:
+                score, _ = self.__min_move(new_moves, a, b, depth)
+            self._game._undo_move()
+            if score > best_score:
+                best_score = score
+                best_move = move
+            if best_score >= b:
+                break
+            if best_score > a:
+                a = best_score
+        return score, best_move
+
+    def __min_move(self, moves, a=-9999, b=9999, depth=0):
+        depth += 1
+        if depth > self._max_depth:
+            return self._game._get_score(), None
+        best_score = 9999
+        score = -9999
+        for move in moves:
+            self._game._make_move(move)
+            new_moves = self._game._players[self._game._toPlay]._avail_moves()
+            if self._game._is_over(new_moves):
+                score = self._game._get_score()
+            else:
+                score, _ = self.__max_move(new_moves, a, b, depth)
+            self._game._undo_move()
+            if score < best_score:
+                best_score = score
+                best_move = move
+            if best_score <= a:
+                break
+            if best_score < b:
+                b = best_score
+        return score, best_move
 
 
 if __name__ == "__main__":

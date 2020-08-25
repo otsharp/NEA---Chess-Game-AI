@@ -298,6 +298,7 @@ class GUI(UI):
 class Terminal(UI):
     def __init__(self, game):
         super().__init__(game)
+        self._settings_choice = self._get_settings()
 
     def _display_board(self):
         os.system("cls")

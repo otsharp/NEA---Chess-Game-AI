@@ -72,3 +72,5 @@ V3.8
 - Added option to flip piece images vertically for each player
 - Added a label at bottom of board to display who it is to play, if piece flipping is disabled
 - Removed invalid move popup
+V4.1
+- Implemented a minimax AI that can be used instead of the random one, with variable max search depth

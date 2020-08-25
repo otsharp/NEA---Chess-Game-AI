@@ -27,20 +27,20 @@ class Game:
         self._EMPTY = "_"
         self._SIZE = 8
         self._UI = UItype(self)
-        self.__settings = self.__get_settings()
+        self._settings = self.__get_settings()
         self._undo_stack = []
         self._played = []
         self._mutual = False
         self._repetitions = []
         self._move_count = 0
         self._toPlay = 0
-        self._players = [[Player, AI][self.__settings[0]](self), [Player, AI][self.__settings[1]](self)]
+        self._players = [[Player, AI][self._settings[0]](self), [Player, AI][self._settings[1]](self)]
         self._board = self.__reset_board()
         for player in self._players:
             player._2nd_init()
 
     def __get_settings(self):
-        return self._UI._get_settings()
+        return self._UI._settings_choice
 
     def __reset_board(self):
         b = [[self._EMPTY for _ in range(self._SIZE)] for _ in range(self._SIZE)]
@@ -261,23 +261,24 @@ class Game:
 
     def play_game(self):
         times = []
+        over = None
+        p_moves = self._players[self._toPlay]._avail_moves()
         self._display_board()
-        print("White to play")
-        while True:
+        # self._UI._notify(f"{['White', 'Black'][self._toPlay]} to play")
+        while over is None:
             t0 = time.time()
-            p_moves = self._players[self._toPlay]._avail_moves()
             bn = [[p if type(p) == str else p._symbol for p in row] for row in self._board]
             self._repetitions.append(StringList([bn, deepcopy(p_moves)]))
-            over = self.__is_over(p_moves)
-            if over is not None:
-                break
             self.__do_turn(p_moves)
+            self._UI._text_vars["to play"].set(f"{['White', 'Black'][self._toPlay]} to play")
             self._display_board()
-            #print(f"Move count = {self._move_count}")
-            #print(f"{['White', 'Black'][self._toPlay]} to play")
+            # self._UI._notify(f"{['White', 'Black'][self._toPlay]} to play")
+            p_moves = self._players[self._toPlay]._avail_moves()
+            over = self.__is_over(p_moves)
             times.append(time.time() - t0)
-            #print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
-        print(over)
+            # print(f"Curr.: {round(time.time() - t0, 3)}s\nAvg.: {round(mean(times), 3)}s\nTot.: {round(sum(times), 3)}s")
+        self._UI._notify(over)
+        self._UI._end()
 
     def _display_board(self):
         self._UI._display_board()
@@ -315,27 +316,30 @@ class Player:
             try:
                 move1.append([int(pos[1]) - 1, ord(pos[0].lower()) - 97])
             except (ValueError, IndexError) as e:
-                print("Value / Index Error", e)
+                self._game._UI._notify("Value / Index Error", e)
                 return self._get_move(moves)
         for pos in move1:
             for coord in pos:
                 if coord > 7 or coord < 0:
-                    print("Out of bounds")
+                    self._game._UI._notify("Out of bounds")
                     return self._get_move(moves)
         if len(move) == 3:
             move1[1].append(move[2].upper())
         if move1 not in moves:
-            print("Not valid move")
+            #self._game._UI._notify("Invalid move")
             return self._get_move(moves)
         return move1
 
     def _in_check(self):
         return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1][:2] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
 
-    def _in_checkmate(self, p_moves=[]):
-        if not p_moves:
+    def _in_checkmate(self, p_moves=None):
+        if p_moves is None:
             p_moves = self._avail_moves()
         return p_moves == [] and self._in_check()
+
+    def __notify(self, message):
+        self._UI._notify(message)
 
 
 class AI(Player):

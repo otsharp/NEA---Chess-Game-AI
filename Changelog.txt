@@ -65,3 +65,10 @@ V3.6
 V3.7
 - Can select between player and ai for white and black
 - Allowed pawns to be promoted by adding selection UI for piece choice
+V3.8
+- Added message popups to display invalid move messages and white / black wins / draw
+- Popup to get player decision on wanting to draw
+- Game closes after a player has won or game is drawn
+- Added option to flip piece images vertically for each player
+- Added a label at bottom of board to display who it is to play, if piece flipping is disabled
+- Removed invalid move popup

@@ -301,7 +301,7 @@ class Terminal(UI):
         self._settings_choice = self._get_settings()
 
     def _display_board(self):
-        os.system("cls")
+        #os.system("cls")
         board = self._game._board
         x = "  "
         for i in range(len(board)):

@@ -12,7 +12,7 @@ V1.1
 - Renamed Game.py to Game_Player.py to reflect it containing the Player class
 V1.2
 - Implemented the _avail_moves algorithm for a standard piece, meaning rooks, bishops, queens, kings, knights, and pawns without the en passent or promotion logic or 1st move moving 2 spaces
-- Implemented the _avail_moves for a player, which just calls the _avail_moves function for each of its pieces, but formatts it as a list of [[oldx, oldy], [newx, newy]]
+- Implemented the _avail_moves for a player, which just calls the _avail_moves function for each of its pieces, but formats it as a list of [[oldx, oldy], [newx, newy]]
 - Finished the Game.__reset_board so that it puts the default pieces in, correctly assinging them to each player
 - This required a _2nd_init() method for the Player class, so that it collects all the pointers to its pieces when the Game instance is created
 - All piece classes have been created, with move functionality tailored for each, with the knight now working as intended
@@ -74,3 +74,8 @@ V3.8
 - Removed invalid move popup
 V4.1
 - Implemented a minimax AI that can be used instead of the random one, with variable max search depth
+V4.2
+- Fixed minimax AI, previously it was playing to lose
+- Fixed pawn could double move through own pieces
+- Fixed en passent
+- Added timing code to analyse where time was being spent during an AI move

@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 #from Chess import usage
 from copy import deepcopy
+import Game_Player
+import time
+import math
 
 symbols = {"Rw": "♜", "Nw": "♞", "Bw": "♝", "Kw": "♚", "Qw": "♛", "Pw": "♟",
            "Rb": "♖", "Nb": "♘", "Bb": "♗", "Kb": "♔", "Qb": "♕", "Pb": "♙"}
@@ -39,6 +42,10 @@ class Piece(ABC):
                 moves = [move for i, move in enumerate(moves) if i not in pops]
         return moves
 
+    @abstractmethod
+    def _is_takeable(self, pos):
+        raise NotImplementedError
+
 
 class Rook(Piece):
     def __init__(self, pos, player, game):
@@ -52,6 +59,27 @@ class Rook(Piece):
         self._moved = False
         self._start_pos = deepcopy(self._pos)
 
+    def _is_takeable(self, pos):
+        if pos[0] != self._pos[0] and pos[1] != self._pos[1]:
+            return False
+        if pos[1] == self._pos[1]:
+            flag = True
+            direction = [-1, 1][pos[0] > self._pos[0]]
+            for diff in range(1, abs(pos[0] - self._pos[0])):
+                if self._game._board[pos[0] + (diff*direction)][pos[1]] != self._game._EMPTY:
+                    flag = False
+                    break
+            if flag:
+                return flag
+        if pos[0] == self._pos[0]:
+            flag = True
+            direction = [-1, 1][pos[1] > self._pos[1]]
+            for diff in range(1, abs(pos[1] - self._pos[1])):
+                if self._game._board[pos[0]][pos[1] + (diff*direction)] != self._game._EMPTY:
+                    flag = False
+                    break
+        return flag
+
 
 class Knight(Piece):
     def __init__(self, pos, player, game):
@@ -62,6 +90,9 @@ class Knight(Piece):
             self._symbol = symbols["Nb"]
         self._dirs = [[1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1]]
         self._max_dis = 1
+
+    def _is_takeable(self, pos):
+        return pos in self._avail_moves(careifcheck=False)
 
 
 class Bishop(Piece):
@@ -75,6 +106,9 @@ class Bishop(Piece):
         self._max_dis = 999
         self._colour = deepcopy((self._pos[0] + self._pos[1] + 1) % 2)
 
+    def _is_takeable(self, pos):
+        return pos in self._avail_moves(careifcheck=False)
+
 
 class King(Piece):
     def __init__(self, pos, player, game):
@@ -86,6 +120,10 @@ class King(Piece):
         self._dirs = [[1, 1], [-1, -1], [1, -1], [-1, 1], [0, 1], [0, -1], [1, 0], [-1, 0]]
         self._max_dis = 1
         self._moved = False
+
+    def _is_takeable(self, pos):
+        dis = math.floor(math.sqrt((pos[0] - self._pos[0])**2 + (pos[1] - self._pos[1])**2))
+        return dis == 1
 
     def _avail_moves(self, careifcheck):
         moves = super()._avail_moves(careifcheck)
@@ -134,6 +172,9 @@ class Queen(Piece):
         self._dirs = [[1, 1], [-1, -1], [1, -1], [-1, 1], [0, 1], [0, -1], [1, 0], [-1, 0]]
         self._max_dis = 999
 
+    def _is_takeable(self, pos):
+        return pos in self._avail_moves(careifcheck=False)
+
 
 class Pawn(Piece):
     def __init__(self, pos, player, game):
@@ -151,54 +192,67 @@ class Pawn(Piece):
     def _avail_moves(self, careifcheck):
         moves = []
         if not self._taken:
+            t = time.time()  # Timing code
             try:
-                if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:
+                if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:  # Standard moving forwards
                     moves.append([self._pos[0] + self._dir[0], self._pos[1]])
             except:
                 print("Quitting")
                 print(self._pos, self._dir)
                 quit()
-            if self._pos[0] == self._start_row:
-                if self._game._board[self._pos[0] + 2*self._dir[0]][self._pos[1]] == self._game._EMPTY:
+            Game_Player.time_pawn["Standard"] += time.time() - t  # Timing code
+            t = time.time()  # Timing code
+            if self._pos[0] == self._start_row:  # Move forward twice first move
+                if self._game._board[self._pos[0] + 2*self._dir[0]][self._pos[1]] == self._game._EMPTY and self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:
                     moves.append([self._pos[0] + 2*self._dir[0], self._pos[1]])
+            Game_Player.time_pawn["Double"] += time.time() - t  # Timing code
+            t = time.time()  # Timing code
             poses1 = []  # diagonal taking
             poses2 = []  # en passant
-            if self._pos[1] < 7:
+            if self._pos[1] < 7:  # Right Diagonal
                 poses1.append([self._game._board[self._pos[0] + self._dir[0]][self._pos[1] + 1], 1])
                 poses2.append([self._game._board[self._pos[0]][self._pos[1] + 1], 1])
-            if self._pos[1] > 0:
+            if self._pos[1] > 0:  # Left Diagonal
                 poses1.append([self._game._board[self._pos[0] + self._dir[0]][self._pos[1] - 1], -1])
                 poses2.append([self._game._board[self._pos[0]][self._pos[1] - 1], -1])
-            for pos, dir in poses1:
+            for pos, dir in poses1:  # Check diagonal is enemy for standard taking
                 if pos != self._game._EMPTY:
                     if pos._player != self._player:
                         moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
-            for pos, dir in poses2:
+            for pos, dir in poses2:  # Check en passent is valid
                 if pos != self._game._EMPTY:
                     if pos._player != self._player and pos.__class__.__name__ == "Pawn":
-                            if pos._just_double:
-                                moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
-            pops = []
-            extra = []
+                        if pos._just_double:
+                            moves.append([self._pos[0] + self._dir[0], self._pos[1] + dir])
+            Game_Player.time_pawn["Diagonal"] += time.time() - t  # Timing code
+            t = time.time()  # Timing code
+            pops = set()
             for i, move in enumerate(moves):
                 if move[0] in [0, 7]:  # promotion
-                    pops.append(i)
+                    pops.add(i)
                     for prom in [['Q'], ['B', 'K', 'R', 'Q']][careifcheck]:
-                        extra.append([move[0], move[1], prom])
-            for m in extra:
-                moves.append(m)
-            moves = [move for i, move in enumerate(moves) if i not in pops]
-            pops = []
+                        moves.append([move[0], move[1], prom])
+            Game_Player.time_pawn["Promotion"] += time.time() - t  # Timing code
+            t = time.time()  # Timing code
             if careifcheck:
                 for i in range(len(moves)):
                     move = moves[i]
                     self._game._make_move([self._pos, move])
                     if self._game._players[1 - self._game._toPlay]._in_check():
-                        pops.append(i)
+                        pops.add(i)
                     self._game._undo_move()
+            Game_Player.time_pawn["Check"] += time.time() - t  # Timing code
+            t = time.time()  # Timing code
             moves = [move for i, move in enumerate(moves) if i not in pops]
-        #print(f"Moves = {moves}")
+            Game_Player.time_pawn["Removing"] += time.time() - t  # Timing code
         return moves
+
+    def _is_takeable(self, pos):
+        if self._pos[1] < 7:  # Right Diagonal
+            return pos == [self._pos[0] + self._dir[0], self._pos[1] + 1]
+        if self._pos[1] > 0:  # Left Diagonal
+            return pos == [self._pos[0] + self._dir[0], self._pos[1] - 1]
+        return False
 
 
 if __name__ == "__main__":

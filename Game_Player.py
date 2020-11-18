@@ -5,6 +5,8 @@ import time
 import random
 from statistics import mean
 from collections import Counter
+import chess # to read polyglot opening book
+import chess.polyglot
 
 
 class StringList(object):
@@ -23,7 +25,49 @@ class StringList(object):
 
 class Game:
     def __init__(self, UItype):
+        # heuristic constants
+        self.__pawn_value_adjustments = [
+                                        [9, 9, 9, 9, 9, 9, 9, 9],
+                                        [3, 3, 3.1, 3.25, 3.25, 3.1, 3, 3],
+                                        [2.2, 2.3, 2.4, 2.7, 2.7, 2.4, 2.3, 2.2],
+                                        [2, 2.1, 2.2, 2.4, 2.4, 2.2, 2.1, 2],
+                                        [1.3, 1.3, 1.3, 1.5, 1.5, 1.3, 1.3, 1.3],
+                                        [1, 1.05, 1.1, 1.2, 1.2, 1.1, 1.05, 1],
+                                        [1, 1, 1, 1, 1, 1, 1, 1],
+                                        [1, 1, 1, 1, 1, 1, 1, 1]
+                                        ]
+        self.__knight_value_adjustments = [
+                                        [1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1],
+                                        [1.05, 1.2, 1.2, 1.25, 1.25, 1.2, 1.2, 1.05],
+                                        [1.1, 1.2, 1.25, 1.35, 1.35, 1.25, 1.2, 1.1],
+                                        [1.1, 1.25, 1.35, 1.5, 1.5, 1.35, 1.25, 1.1],
+                                        [1.1, 1.25, 1.35, 1.5, 1.5, 1.35, 1.25, 1.1],
+                                        [1.05, 1.1, 1.2, 1.25, 1.25, 1.2, 1.1, 1.05],
+                                        [1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1],
+                                        [1, 1, 1, 1, 1, 1, 1, 1]
+                                        ]
+        self.__pawn_value_adjustments = self.__pawn_value_adjustments[::-1]
+        self.__knight_value_adjustments = self.__knight_value_adjustments[::-1]
+
+        a = 1
+
+        self.__knight_value_adjustments = [[((i-1)/a)+1 for i in row] for row in self.__knight_value_adjustments]
+
+        q_a = 0.2285
+        q_b = -4.0589
+        q_c = 2
+        q_d = -0.06
+        self.__queen_covering_adjustments = [q_c**((q_a * x) + q_b) + q_d for x in range(30)]
+
+        r_a = 0.4489
+        r_b = -6.2653
+        r_c = 2
+        r_d = -0.013
+        self.__rook_covering_adjustments = [r_c**((r_a * x) + r_b) + r_d for x in range(15)]
+
         self._EMPTY = "_"
+        self._opening_board = chess.Board()
+        self._AI_TYPES = 3
         self._SIZE = 8
         self._UI = UItype(self)
         self._settings = self.__get_settings()
@@ -33,7 +77,15 @@ class Game:
         self._repetitions = []
         self._move_count = 0
         self._toPlay = 0
-        self._players = [[Player, AI][self._settings[0]](self), [Player, AI][self._settings[1]](self)]
+        if self._settings[0] == 0:
+            player_1 = Player(self)
+        else:
+            player_1 = AI(self, ["Random", "MiniMax", "MCTS"][self._settings[0] - 1])
+        if self._settings[1] == 0:
+            player_2 = Player(self)
+        else:
+            player_2 = AI(self, ["Random", "MiniMax", "MCTS"][self._settings[1] - 1])
+        self._players = [player_1, player_2]
         self._board = self.__reset_board()
         for player in self._players:
             player._2nd_init()
@@ -86,8 +138,8 @@ class Game:
         ]
         return b
 
-    def _is_draw(self, p_moves):
-        stalemate = p_moves == [] and not self._players[self._toPlay]._in_check() or (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
+    def _is_draw(self, p_moves, in_ai_moves=False):
+        stalemate = p_moves == [] and not self._players[self._toPlay]._in_check()# or (self._players[1 - self._toPlay]._avail_moves() == [] and not self._players[1 - self._toPlay]._in_check())
 
         player1_pieces = sorted([p.__class__.__name__ for p in self._players[0]._pieces if p._taken == False])
         player2_pieces = sorted([p.__class__.__name__ for p in self._players[1]._pieces if p._taken == False])
@@ -102,13 +154,13 @@ class Game:
         repetition = False
         if x >= 5:
             repetition = True
-        elif x >= 3:
-            if self._UI._get_draw_decision(self._toPlay):
-                repetition = self._UI._get_draw_decision(1 - self._toPlay)
+        elif x >= 3 and not in_ai_moves:
+                if self._UI._get_draw_decision(self._toPlay):
+                    repetition = self._UI._get_draw_decision(1 - self._toPlay)
         move_limit = False
         if self._move_count >= 75:
             move_limit = True
-        elif self._move_count >= 50:
+        elif self._move_count >= 50 and not in_ai_moves:
             if self._UI._get_draw_decision(self._toPlay):
                 move_limit = self._UI._get_draw_decision(1 - self._toPlay)
         agreement = self._mutual
@@ -124,17 +176,22 @@ class Game:
             return "Agreement"
         return False
 
-    def _is_over(self, p_moves):
+    def _is_over(self, p_moves, in_ai_moves=False):
         if self._players[self._toPlay]._in_checkmate(p_moves):
             return f"{['White', 'Black'][1 - self._toPlay]} wins"
         if self._players[1 - self._toPlay]._in_checkmate(p_moves):
             return f"{['White', 'Black'][self._toPlay]} wins"
-        x = self._is_draw(p_moves)
+        x = self._is_draw(p_moves, in_ai_moves)
         if x:
             return x
         return None
 
-    def _make_move(self, move):
+    def _make_move(self, move, main=False):
+        if main:
+            x = ""
+            if len(move[1]) == 3:
+                x = move[1][2]
+            self._opening_board.push_san(f"{chr(move[0][1] + 97)}{move[0][0]+1}{chr(move[1][1] + 97)}{move[1][0]+1}{x}")
         mc = deepcopy(self._move_count)
         self._played.append([[chr(move[0][1] + 97), move[0][0]+1], [chr(move[1][1] + 97), move[1][0]+1]])
         piece = self._board[move[0][0]][move[0][1]]
@@ -151,15 +208,7 @@ class Game:
                 rook = self._board[move[0][0]][0]
             self._undo_stack.append([king, deepcopy(king._pos), None, None, None, None, False, rook, mc])
             self._board[king._pos[0]][king._pos[1]] = self._EMPTY
-            try:
-                self._board[rook._pos[0]][rook._pos[1]] = self._EMPTY
-            except AttributeError as e:
-                print(e)
-                print("New Board")
-                self._display_board()
-                print(move)
-                print(self._played)
-                quit()
+            self._board[rook._pos[0]][rook._pos[1]] = self._EMPTY
             king._pos = move[1]
             rook._pos = [move[1][0], move[1][1] + [1, -1][move[1][1] > move[0][1]]]
             self._board[king._pos[0]][king._pos[1]] = king
@@ -181,6 +230,8 @@ class Game:
                 self._board[move[1][0]][move[1][1]] = piece
                 piece._taken = True
                 prom = [Bishop, Knight, Rook, Queen][['B', 'K', 'R', 'Q'].index(move[1][2].upper())](move[1][:2], self._players[self._toPlay], self)
+                if prom.__class__.__name__ == "Rook":
+                    prom._moved = True
                 self._players[self._toPlay]._pieces.append(prom)
                 self._undo_stack.append([piece, p, h, n, x, prom, None, None, mc])
                 piece = prom
@@ -229,6 +280,8 @@ class Game:
         self._toPlay = (self._toPlay + 1) % 2
 
     def _undo_move(self, main=False):
+        if main:
+            self._opening_board.pop()
         self._played.pop()
         if main:
             self._repetitions.pop()
@@ -260,12 +313,14 @@ class Game:
     def __do_turn(self, moves):
         move = self._players[self._toPlay]._get_move(moves)
         if move == "undo":
-            self._undo_move(True)
+            self._undo_move(main=True)
         elif move == "draw":
             if self._UI._get_draw_decision(1 - self._toPlay):
                 self._mutual = True
         else:
-            self._make_move(move)
+            self._make_move(move, main=True)
+            if self._UI.__class__.__name__ == "GUI":
+                self._UI._green_last(move)
 
     def play_game(self):
         global time_pieces, time_pawn
@@ -281,9 +336,11 @@ class Game:
             bn = [[p if type(p) == str else p._symbol for p in row] for row in self._board]
             self._repetitions.append(StringList([bn, deepcopy(p_moves)]))
             self.__do_turn(p_moves)
+            #print(self._played)
             if self._UI.__class__.__name__ == "GUI":
                 self._UI._text_vars["to play"].set(f"{['White', 'Black'][self._toPlay]} to play")
             self._display_board()
+            print(f"Score = {round(self._get_score(), 2)}")
             # self._UI._notify(f"{['White', 'Black'][self._toPlay]} to play")
             p_moves = self._players[self._toPlay]._avail_moves()
             over = self._is_over(p_moves)
@@ -298,13 +355,35 @@ class Game:
     def __is_move_legal(self, move):
         return move in self._players[self._toPlay]._avail_moves()
 
-    def _get_score(self):
+    def _get_score(self, moves=[]):
         score = 0
-        vals = {"Pawn": 1, "Bishop": 4, "Knight": 3, "Rook": 5, "Queen": 9, "King": 999}
+        #vals = {"Pawn": 1, "Bishop": 3, "Knight": 3, "Rook": 5, "Queen": 9, "King": 999}
         for i in range(2):
+            #moves = self._players[(self._toPlay + i) % 2]._avail_moves(careifcheck=True)
             for piece in self._players[i]._pieces:
                 if not piece._taken:
-                    val = vals[piece.__class__.__name__]
+                    name = piece.__class__.__name__
+                    if name == "Pawn":
+                        dis = abs(piece._pos[0] - piece._start_row) + 1
+                        val = 1 * self.__pawn_value_adjustments[dis][piece._pos[1]]
+                    if name == "King":
+                        val = 999
+                    if name == "Bishop":
+                        dis = abs(piece._pos[0] - [0, 7][i])
+                        #num = sum([1 for move in moves if move[0] == piece._pos])
+                        val = 3# + self.__rook_covering_adjustments[int(num)]
+                    if name == "Knight":
+                        dis = abs(piece._pos[0] - [0, 7][i])
+                        val = 3# * self.__knight_value_adjustments[dis][piece._pos[1]]
+                    if name == "Rook":
+                        dis = abs(piece._pos[0] - [0, 7][i])
+                        #num = sum([1 for move in moves if move[0] == piece._pos and move[1][0] != [0, 7][i]])
+                        val = 5# + self.__rook_covering_adjustments[int(num)]
+                    if name == "Queen":
+                        dis = abs(piece._pos[0] - [0, 7][i])
+                        #self.__knight_value_adjustments[move[1][0]][move[1][1]]
+                        #num = sum([1 for move in moves if move[0] == piece._pos and move[1][0] != [0, 7][i]])
+                        val = 9# + self.__queen_covering_adjustments[int(num)]
                     if i == 0:
                         score += val
                     else:
@@ -360,9 +439,11 @@ class Player:
 
     def _in_check(self):
         king_pos = self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos
-        for piece in self._game._players[1-self._game._players.index(self)]._pieces:
-            if piece._is_takeable(king_pos):
-                return True
+        opponent_pieces = self._game._players[1-self._game._players.index(self)]._pieces
+        for piece in opponent_pieces:
+            if not piece._taken:
+                if piece._is_takeable(king_pos):
+                    return True
         return False
         #return self._pieces[[p.__class__.__name__ for p in self._pieces].index("King")]._pos in [m[1][:2] for m in self._game._players[1 - self._game._players.index(self)]._avail_moves(False)]
 
@@ -376,52 +457,116 @@ class Player:
 
 
 class AI(Player):
-    def __init__(self, game):
+    def __init__(self, game, ai_type="Random"):
         super().__init__(game)
-        self._type = "MinMax"
+        #self._type = ["Random", "MiniMax", "MCTS"][3-1]
+        self._type = ai_type
         self._max_depth = 3
+        self._playouts = 2
 
     def _get_move(self, moves):
-        global time_minmax, time_pieces, time_pawn
-        time_minmax = {"Start check": 0, "Making moves": 0, "Getting moves": 0, "Checking over": 0,
-                        "Undoing moves": 0, "ab pruning": 0, "Getting score": 0, "Sub total": 0}
-        time_pieces = {"Pawn": 0, "King": 0, "Queen": 0, "Rook": 0, "Knight": 0, "Bishop": 0}
-        time_pawn = {"Standard": 0, "Double": 0, "Diagonal": 0,
-                    "Promotion": 0, "Check": 0, "Removing": 0}
-        if self._type == "MinMax":
-            if self._game._players.index(self) == 0:  # Is it white?
+        if self._game._UI.__class__.__name__ == "GUI":
+            self._game._UI._disable()
+        try:
+            with chess.polyglot.open_reader("C:/Local Stuff/poly16/books/elo2500.bin") as reader:
+                for entry in reader.find_all(self._game._opening_board):
+                    move = str(entry.move)
+                    break
+            x = [[int(move[1])-1, ord(move[0])-97], [int(move[3])-1, ord(move[2])-97]]
+            if self._game._UI.__class__.__name__ == "GUI":
+                self._game._UI._enable()
+            return x
+        except:
+            global time_minmax, time_pieces, time_pawn
+            time_minmax = {"Start check": 0, "Making moves": 0, "Getting moves": 0, "Checking over": 0,
+                            "Undoing moves": 0, "ab pruning": 0, "Getting score": 0, "Sub total": 0}
+            time_pieces = {"Pawn": 0, "King": 0, "Queen": 0, "Rook": 0, "Knight": 0, "Bishop": 0}
+            time_pawn = {"Standard": 0, "Double": 0, "Diagonal": 0,
+                        "Promotion": 0, "Check": 0, "Removing": 0}
+            if self._type == "MiniMax":
+                if self._game._players.index(self) == 0:  # Is it white?
+                    t0 = time.time()
+                    best_score, move = self.__max_move(moves)  # Maximise score
+                    time_total = time.time() - t0
+                else:
+                    t0 = time.time()
+                    best_score, move = self.__min_move(moves)  # Minimise score
+                    time_total = time.time() - t0
+            elif self._type == "MCTS":
                 t0 = time.time()
-                move = self.__max_move(moves)[1]  # Maximise score
+                move = self.__MCTS(moves, self._game._players.index(self) == 0)
                 time_total = time.time() - t0
             else:
-                t0 = time.time()
-                move = self.__min_move(moves)[1]  # Minimise score
-                time_total = time.time() - t0
-        elif self._type == "MCTS":
-            pass
-        else:
-            move = random.choice(moves)
-        print()
-        print(f"AI move took {time_total}s")    
-        if self._type == "MinMax":
-            s = sum(time_minmax.values()) - time_minmax["Sub total"]
-            p_sum = sum(time_pieces.values())
-            pawn_sum = sum(time_pawn.values())
-            for section, s_t in time_minmax.items():
-                print(f"- {section}: {round(s_t, 4)}s = {round((s_t / time_total) * 100, 3)}% = {round((s_t / s) * 100, 3)}%")
-                if section == "Getting moves":
-                    for piece_type, t in time_pieces.items():
-                        print(f"- - {piece_type}: {round(t, 4)}s = {round((t / p_sum) * 100, 3)}%")
-                        if piece_type == "Pawn":
-                            for pawn_part, pawn_t in time_pawn.items():
-                                print(f"- - - {pawn_part}: {round(pawn_t, 4)}s = {round((pawn_t / pawn_sum) * 100, 3)}%")          
-                #print(f"- - All: {round(p_sum, 4)}s = {round((p_sum / (2 * time_getting_moves)) * 100, 3)}%")
-        if self._type == "MCTS":
-            pass
-        return move
+                move = random.choice(moves)
+            try:  
+                if self._type == "MiniMax":
+                    print()
+                    print(f"AI move took {time_total}s")
+                    print(f"Best score = {round(best_score, 2)}")
+                    """
+                    s = sum(time_minmax.values()) - time_minmax["Sub total"]
+                    p_sum = sum(time_pieces.values())
+                    pawn_sum = sum(time_pawn.values())
+                    for section, s_t in time_minmax.items():
+                        print(f"- {section}: {round(s_t, 4)}s = {round((s_t / time_total) * 100, 3)}% = {round((s_t / s) * 100, 3)}%")
+                        if section == "Getting moves":
+                            for piece_type, t in time_pieces.items():
+                                print(f"- - {piece_type}: {round(t, 4)}s = {round((t / p_sum) * 100, 3)}%")
+                                if piece_type == "Pawn":
+                                    for pawn_part, pawn_t in time_pawn.items():
+                                        print(f"- - - {pawn_part}: {round(pawn_t, 4)}s = {round((pawn_t / pawn_sum) * 100, 3)}%")          
+                        #print(f"- - All: {round(p_sum, 4)}s = {round((p_sum / (2 * time_getting_moves)) * 100, 3)}%")
+                        """
+                if self._type == "MCTS":
+                    print()
+                    print(f"AI move took {time_total}s") 
+            except:
+                print("Timing crashed")
+            if self._game._settings[3]:
+                pass
+                """
+                totype = f"{chr(move[0][1] + 97)}{move[0][0]+1}{chr(move[1][1] + 97)}{move[1][0]+1}"
+                print(totype)
+                typewrite(totype)
+                """
+            if self._game._UI.__class__.__name__ == "GUI":
+                self._game._UI._enable()
+            return move
 
     def _get_prom_choice(self):
         return 3
+
+    def __playout(self):
+        count = 0
+        moves = self._game._players[self._game._toPlay]._avail_moves()
+        x = self._game._is_over(moves, True)
+        while x is None:
+            move = random.choice(moves)
+            self._game._make_move(move)
+            moves = self._game._players[self._game._toPlay]._avail_moves()
+            count += 1
+            x = self._game._is_over(moves, True)
+        if x == "White wins":
+            y = 1
+        elif x == "Black wins":
+            y = -1
+        else:
+            y = 0
+        for i in range(count):
+            self._game._undo_move()
+        return y
+
+    def __MCTS(self, moves, maximise):
+        scores = []
+        for move in moves:
+            total = 0
+            self._game._make_move(move)
+            for i in range(self._playouts):
+                total += self.__playout()
+            scores.append(total)
+            self._game._undo_move()
+        print(scores)
+        return moves[scores.index([min(scores), max(scores)][maximise])]
 
     def __max_move(self, moves, a=-9999, b=9999, depth=0):
         global time_minmax  # Timing code
@@ -431,7 +576,7 @@ class AI(Player):
         depth += 1
         if depth > self._max_depth:
             ts = time.time()  # Timing code
-            s = self._game._get_score()
+            s = self._game._get_score(moves=moves)
             time_minmax["Getting score"] += (time.time() - ts)  # Timing code
             return s, None
         best_score = -9999
@@ -444,10 +589,15 @@ class AI(Player):
             new_moves = self._game._players[self._game._toPlay]._avail_moves()
             time_minmax["Getting moves"] += (time.time() - t)  # Timing code
             t = time.time()  # Timing code
-            if self._game._is_over(new_moves):
+            x = self._game._is_over(new_moves, in_ai_moves=True)
+            if x is not None:
                 time_minmax["Checking over"] += (time.time() - t)  # Timing code
                 t = time.time()  # Timing code
-                score = self._game._get_score()
+                score = 0
+                if x == "White wins":
+                    score = 999
+                if x == "Black wins":
+                    score = -999
                 time_minmax["Getting score"] += (time.time() - t)  # Timing code
             else:
                 Tsi = time.time()  # Timing code
@@ -466,7 +616,7 @@ class AI(Player):
                 a = best_score
             time_minmax["ab pruning"] += (time.time() - t)  # Timing code
         time_minmax["Sub total"] += time.time() - t0 - (sum(Ts))  # Timing code
-        return score, best_move
+        return best_score, best_move
 
     def __min_move(self, moves, a=-9999, b=9999, depth=0):
         global time_minmax  # Timing code
@@ -489,10 +639,16 @@ class AI(Player):
             new_moves = self._game._players[self._game._toPlay]._avail_moves()
             time_minmax["Getting moves"] += (time.time() - t)  # Timing code
             t = time.time()  # Timing code
-            if self._game._is_over(new_moves):
+            x = self._game._is_over(new_moves, in_ai_moves=True)
+            if x is not None:
                 time_minmax["Checking over"] += (time.time() - t)  # Timing code
                 t = time.time()  # Timing code
-                score = self._game._get_score()
+                if x == "White wins":
+                    score = 999
+                if x == "Black wins":
+                    score = -999
+                else:
+                    score = 0
                 time_minmax["Getting score"] += (time.time() - t)  # Timing code
             else:
                 Tsi = time.time()  # Timing code
@@ -511,7 +667,7 @@ class AI(Player):
                 b = best_score
             time_minmax["ab pruning"] += (time.time() - t)  # Timing code
         time_minmax["Sub total"] += time.time() - t0 - (sum(Ts))  # Timing code
-        return score, best_move
+        return best_score, best_move
 
 
 if __name__ == "__main__":

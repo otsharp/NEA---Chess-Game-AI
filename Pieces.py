@@ -32,6 +32,7 @@ class Piece(ABC):
                         break
                     i += 1
             if careifcheck:
+                #print(self._symbol, "Pre-check", moves)
                 pops = []
                 for i in range(len(moves)):
                     move = moves[i]
@@ -40,6 +41,7 @@ class Piece(ABC):
                         pops.append(i)
                     self._game._undo_move()
                 moves = [move for i, move in enumerate(moves) if i not in pops]
+                #print(self._symbol, "Post-check", moves)
         return moves
 
     @abstractmethod
@@ -66,7 +68,7 @@ class Rook(Piece):
             flag = True
             direction = [-1, 1][pos[0] > self._pos[0]]
             for diff in range(1, abs(pos[0] - self._pos[0])):
-                if self._game._board[pos[0] + (diff*direction)][pos[1]] != self._game._EMPTY:
+                if self._game._board[self._pos[0] + (diff*direction)][self._pos[1]] != self._game._EMPTY:
                     flag = False
                     break
             if flag:
@@ -75,7 +77,7 @@ class Rook(Piece):
             flag = True
             direction = [-1, 1][pos[1] > self._pos[1]]
             for diff in range(1, abs(pos[1] - self._pos[1])):
-                if self._game._board[pos[0]][pos[1] + (diff*direction)] != self._game._EMPTY:
+                if self._game._board[self._pos[0]][self._pos[1] + (diff*direction)] != self._game._EMPTY:
                     flag = False
                     break
         return flag
@@ -193,13 +195,8 @@ class Pawn(Piece):
         moves = []
         if not self._taken:
             t = time.time()  # Timing code
-            try:
-                if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:  # Standard moving forwards
-                    moves.append([self._pos[0] + self._dir[0], self._pos[1]])
-            except:
-                print("Quitting")
-                print(self._pos, self._dir)
-                quit()
+            if self._game._board[self._pos[0] + self._dir[0]][self._pos[1]] == self._game._EMPTY:  # Standard moving forwards
+                moves.append([self._pos[0] + self._dir[0], self._pos[1]])
             Game_Player.time_pawn["Standard"] += time.time() - t  # Timing code
             t = time.time()  # Timing code
             if self._pos[0] == self._start_row:  # Move forward twice first move
@@ -228,7 +225,7 @@ class Pawn(Piece):
             t = time.time()  # Timing code
             pops = set()
             for i, move in enumerate(moves):
-                if move[0] in [0, 7]:  # promotion
+                if move[0] in [0, 7] and len(move) == 2:  # promotion
                     pops.add(i)
                     for prom in [['Q'], ['B', 'K', 'R', 'Q']][careifcheck]:
                         moves.append([move[0], move[1], prom])
@@ -248,11 +245,13 @@ class Pawn(Piece):
         return moves
 
     def _is_takeable(self, pos):
+        x = False
+        y = False
         if self._pos[1] < 7:  # Right Diagonal
-            return pos == [self._pos[0] + self._dir[0], self._pos[1] + 1]
+            x = pos == [self._pos[0] + self._dir[0], self._pos[1] + 1]
         if self._pos[1] > 0:  # Left Diagonal
-            return pos == [self._pos[0] + self._dir[0], self._pos[1] - 1]
-        return False
+            y = pos == [self._pos[0] + self._dir[0], self._pos[1] - 1]
+        return x or y
 
 
 if __name__ == "__main__":

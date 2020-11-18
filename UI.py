@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod
 import os
 #from Chess import usage
-from ttkthemes import themed_tk as t_tk
-import tkinter as tk
-from PIL import Image, ImageTk
 from functools import partial
 import random
 import time
+
+from ttkthemes import themed_tk as t_tk
+import tkinter as tk
+from PIL import Image, ImageTk
+
 
 
 class UI(ABC):
@@ -45,27 +47,29 @@ class GUI(UI):
         self._root.title("Chess")
         self._size = 1000
         self._win_size = 80
-        self._black_square = "#B88658"
-        self._white_sqaure = "#F0D2AD"
+        self._black_square = "#B58863"
+        self._white_sqaure = "#F0D9B5"
         self._green_square = "#8AE678"
         self._prom_choice = None
         self._sprite_normal_percent = 65 / 100
         self._sprite_big_percent = 85 / 100
         self._root.geometry(f"{self._size}x{self._size}")
         self._accept_settings = False
-        self._settings_choice = [False, False, True]
+        self._settings_choice = [0, 0, False, False]
         self._text_vars = {}
         self._text_vars["settings white"] = tk.StringVar()
         self._text_vars["settings white"].set("White: Player")
         self._text_vars["settings black"] = tk.StringVar()
         self._text_vars["settings black"].set("Black: Player")
         self._text_vars["settings flip"] = tk.StringVar()
-        self._text_vars["settings flip"].set("Flip?: Yes")
+        self._text_vars["settings flip"].set("Flip?: No")
         self._text_vars["to play"] = tk.StringVar()
         self._text_vars["to play"].set("White to play")
 
         self.start = []
         self.finish = []
+
+        self._last_move = []
 
         self._pos_buttons = []
         self._root.sprites = {}
@@ -76,7 +80,7 @@ class GUI(UI):
                     for i in range(3):
                         s = [self._sprite_normal_percent, self._sprite_big_percent, self._win_size / (self._size / (8 + 0)) * self._sprite_big_percent][i]
                         s1 = (int(self._size / (self._game._SIZE + 0) * s))
-                        self._root.sprites[f"{piece} - {colour} - {['Normal', 'Big', 'Prom'][i]} - {orientation}"] = ImageTk.PhotoImage([Image.open(f"Sprites/{piece} - {colour}.png").resize((s1, s1), Image.ANTIALIAS), Image.open(f"Sprites/{piece} - {colour}.png").resize((s1, s1), Image.ANTIALIAS).transpose(Image.FLIP_TOP_BOTTOM)][orientation == "Flipped"])
+                        self._root.sprites[f"{piece} - {colour} - {['Normal', 'Big', 'Prom'][i]} - {orientation}"] = ImageTk.PhotoImage([Image.open(f"Sprites/{piece} - {colour}.png").resize((s1, s1), Image.ANTIALIAS), Image.open(f"Sprites/{piece} - {colour}.png").resize((s1, s1), Image.ANTIALIAS).transpose(Image.ROTATE_180)][orientation == "Flipped"])
 
         self._board_frame = tk.Frame(self._root)
         self._board_frame.grid(row=0, column=0, sticky="nesw")
@@ -92,7 +96,7 @@ class GUI(UI):
             self._pos_buttons.append([])
             for c in range(self._game._SIZE):
                 image = ""
-                button = tk.Button(row_frame, image=image, bg=[self._black_square, self._white_sqaure][(r + c + 1) % 2], height=1, width=1, relief="flat", command=partial(self.select_piece, r, c))
+                button = tk.Button(row_frame, image=image, bg=[self._black_square, self._white_sqaure][(r + c + 1) % 2], height=1, width=1, relief="flat", command=partial(self.select_piece, r, c), takefocus=False, activebackground=[self._black_square, self._white_sqaure][(r + c + 1) % 2], disabledforeground=[self._black_square, self._white_sqaure][(r + c + 1) % 2])
                 self._pos_buttons[r].append(button)
                 button.grid(row=0, column=c, sticky="nesw")
                 tk.Grid.columnconfigure(row_frame, c, weight=1)
@@ -104,19 +108,50 @@ class GUI(UI):
             turn_label.grid(row=9, column=0, sticky="nesw")
             tk.Grid.rowconfigure(self._board_frame, 9, weight=1)
 
+    def _disable(self):
+        for r in self._pos_buttons:
+            for c in r:
+                c.configure(command=0)
+
+    def _enable(self):
+        for i, r in enumerate(self._pos_buttons):
+            for j, b in enumerate(r):
+                b.configure(command=partial(self.select_piece, i, j))
+
+    def _green_last(self, move):
+        if self._last_move:
+            r1 = self._game._SIZE - self._last_move[0][0] - 1
+            c1 = self._last_move[0][1]
+            r2 = self._game._SIZE - self._last_move[1][0] - 1
+            c2 = self._last_move[1][1]
+            self._pos_buttons[r1][c1].configure(bg=[self._black_square, self._white_sqaure][(r1 + c1 + 1) % 2])
+            self._pos_buttons[r2][c2].configure(bg=[self._black_square, self._white_sqaure][(r2 + c2 + 1) % 2])
+        self._pos_buttons[self._game._SIZE - move[0][0] - 1][move[0][1]].configure(bg=["#ABA23A", "#CED26B"][(self._game._SIZE - move[0][0] - 1 + move[0][1] + 1) % 2])
+        self._pos_buttons[self._game._SIZE - move[1][0] - 1][move[1][1]].configure(bg=["#ABA23A", "#CED26B"][(self._game._SIZE - move[1][0] - 1 + move[1][1] + 1) % 2])
+        self._last_move = move
+
     def select_piece(self, r, c):
         if self.start:
             if self.finish:
                 self.start = []
                 self.finish = []
-            self.finish = [self._game._SIZE - r - 1, c]
-            self._display_board()
+            piece = self._game._board[self._game._SIZE - r - 1][c]
+            flag = True
+            if piece != self._game._EMPTY:
+                if piece._player == self._game._players[self._game._toPlay]:
+                    flag = False
+                    self.start = [self._game._SIZE - r - 1, c]
+                    self._display_board()
+                    self._change_sprite_size(r, c)
+            if flag:
+                self.finish = [self._game._SIZE - r - 1, c]
+                self._display_board()
         else:
-            #print(self._game._board[r][c])
-            #if self._game._board[r][c] != self._game._EMPTY:
-            self.start = [self._game._SIZE - r - 1, c]
-            self._change_sprite_size(r, c)
-            #self._pos_buttons[r][c].configure(bg="green")
+            piece = self._game._board[self._game._SIZE - r - 1][c]
+            if piece != self._game._EMPTY:
+                if piece._player == self._game._players[self._game._toPlay]:
+                    self.start = [self._game._SIZE - r - 1, c]
+                    self._change_sprite_size(r, c)
 
     def _change_sprite_size(self, r, c):
         piece = self._game._board[self._game._SIZE - r - 1][c]
@@ -137,7 +172,7 @@ class GUI(UI):
                 else:
                     image_name = f"{piece.__class__.__name__} - {['White', 'Black'][self._game._players.index(piece._player)]} - Normal - {['Normal', 'Flipped'][self._game._settings[2] and self._game._toPlay == 1]}"
                 button = self._pos_buttons[r][c]
-                button.configure(image=self._root.sprites[image_name], bg=[self._black_square, self._white_sqaure][(r + c + 1) % 2])
+                button.configure(image=self._root.sprites[image_name])
 
     def _get_move(self, moves):
         while True:
@@ -183,14 +218,15 @@ class GUI(UI):
         win.destroy()
         return choice
 
-    def __flip_setting(self, i):
-        self._settings_choice[i] = not self._settings_choice[i]
+    def __increment_setting(self, i):
         if 0 <= i <= 1:
-            self._text_vars[f"settings {['white', 'black'][i]}"].set(f"{['White', 'Black'][i]}: {['Player', 'AI'][self._settings_choice[i]]}")
+            self._settings_choice[i] = (self._settings_choice[i] + 1) % (self._game._AI_TYPES+1)
+            self._text_vars[f"settings {['white', 'black'][i]}"].set(f"{['White', 'Black'][i]}: {['Player', 'AI - Random', 'AI - MiniMax', 'AI - MCTS'][self._settings_choice[i]]}")
         elif i == 2:
+            self._settings_choice[i] = not self._settings_choice[i] 
             self._text_vars["settings flip"].set(f"Flip?: {['No', 'Yes'][self._settings_choice[i]]}")
         else:
-            print("Flip setting error")
+            print("Setting incrementing error")
             quit()
 
     def __settings_okay(self, win):
@@ -214,10 +250,10 @@ class GUI(UI):
         tk.Grid.columnconfigure(frame, 0, weight=1)
         for i in range(2):
             button = tk.Button(
-                frame, relief="flat", height=self._win_size, width=2*self._win_size, textvariable=self._text_vars[f"settings {['white', 'black'][i]}"], command=partial(self.__flip_setting, i))
+                frame, relief="flat", height=self._win_size, width=2*self._win_size, textvariable=self._text_vars[f"settings {['white', 'black'][i]}"], command=partial(self.__increment_setting, i))
             button.grid(row=i, column=0, sticky="nesw")
             tk.Grid.rowconfigure(frame, i, weight=3)
-        button1 = tk.Button(frame, relief="flat", height=self._win_size, width=2*self._win_size, textvariable=self._text_vars["settings flip"], command=partial(self.__flip_setting, 2))
+        button1 = tk.Button(frame, relief="flat", height=self._win_size, width=2*self._win_size, textvariable=self._text_vars["settings flip"], command=partial(self.__increment_setting, 2))
         button1.grid(row=2, column=0, sticky="nesw")
         tk.Grid.rowconfigure(frame, 2, weight=3)
         okay_button = tk.Button(frame, height=int(self._win_size / 3), width=2*self._win_size, text="Done", command=partial(self.__settings_okay, win))
@@ -328,10 +364,14 @@ class Terminal(UI):
         s = []
         for i in range(2):
             x = ""
-            while x not in ["Y", "N"]:
-                x = input(f"Is {['White', 'Black'][i]} an AI? (Y/N): ").upper()
-            s.append(x == "Y")
+            while x not in ["player", "random", "minimax", "mcts"]:
+                x = input(f"{['White', 'Black'][i]} type (Player, Random, Minimax, MCTS): ").lower()
+            s.append(["player", "random", "minimax", "mcts"].index(x))
         s.append(False)  # flip
+        x = "n"
+        while x not in ["y", "n"]:
+            x = input("Type AI moves? (Y/N): ").lower()
+        s.append(x=="y")
         return s
 
     def _notify(self, message):

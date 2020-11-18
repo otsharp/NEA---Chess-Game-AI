@@ -1,4 +1,4 @@
-V1.0
+wordV1.0
 - Initialised file structure
 V1.1
 - Initialised classes
@@ -79,3 +79,18 @@ V4.2
 - Fixed pawn could double move through own pieces
 - Fixed en passent
 - Added timing code to analyse where time was being spent during an AI move
+V4.3
+- Added a Monte-carlo tree search AI, that uses random playouts
+- Added option to select between the different AI types, random, Minimax and MCTS
+- Due to time analysis, detecting if a player is in check was optimised, as it took up a very large proportion of an AI's move time, causing the implementation of a Piece._is_takeable(pos), which returns if a piece could take a certain pos, which is always the opponent's king's position, ignoring if it would cause the other player to be in check afterwards
+- Fixed bug where when a pawn was promoted to a rook, and the king hadn't moved, it could try to castle, which crashed the program
+- Fixed the Minimax AI implementation as it was returning the wrong score in some cases, causing it to play badly
+- Fixed the Minimax AI implementation as the get_score() funcition didn't take into account checkmate, so the AI didn't go for, or defend, checkmates
+- Added Heatmaps.py which contains code to generate heatmaps from 2D arrays to visualize how piece positions affect their worth, according to how the get_score() function will work
+- Fixed a bug where a king could move into check by a pawn
+- Fixed promotions causing a crash with opening book implemented
+- Added GUI._disable() and .enable() so that the GUI can be frozen during AI moves to prevent buggy rendering of the board when a square is clicked during the AI move
+- When using the "flip" setting in the GUI, sprites are now rotated 180 degrees instead of being mirrored vertically
+- Only allows selecting of own players piece, not other player or no piece
+- Better move rejection, e.g. trying to move a player's piece to another one of their pieces will just select the new piece, not attempt to move there
+- The last move squares are highlighted green to make it clear to the player where either the AI, or another player, have moved

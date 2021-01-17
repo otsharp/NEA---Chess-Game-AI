@@ -20,15 +20,25 @@ other_value_adjustments = [
     [1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1],
     [1, 1, 1, 1, 1, 1, 1, 1]]
 
-pawn_value_adjustments[0] = [4, 4, 4, 4, 4, 4, 4, 4]  # to distinguish lower values more
+pawn_value_adjustments[0] = [4, 4, 4, 4, 4, 4, 4, 4]  # to distinguish lower values more in visuals
 
 plt.imshow(pawn_value_adjustments, cmap=plt.cm.get_cmap("hot").reversed(), interpolation="nearest")
-colour_bar = plt.colorbar()
+colour_bar = plt.colorbar() # Plotting the heatmap
 plt.show()
 
 plt.imshow(other_value_adjustments, cmap=plt.cm.get_cmap("hot").reversed(), interpolation="nearest")
-colour_bar = plt.colorbar()
+colour_bar = plt.colorbar() # Plotting the 2nd heatmap
 plt.show()
 
 pawn_value_adjustments = pawn_value_adjustments[::-1]
 other_value_adjustments = other_value_adjustments[::-1]
+
+for i, row in enumerate(other_value_adjustments): # Printing the array nicely formatted
+    if i == 0:
+        print("[", end="")
+    print(str(row), end="")
+    if i == len(other_value_adjustments) - 1:
+        print("]", end="")
+    else:
+        print(",", end="")
+    print()

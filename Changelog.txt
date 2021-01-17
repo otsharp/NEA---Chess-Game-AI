@@ -94,3 +94,19 @@ V4.3
 - Only allows selecting of own players piece, not other player or no piece
 - Better move rejection, e.g. trying to move a player's piece to another one of their pieces will just select the new piece, not attempt to move there
 - The last move squares are highlighted green to make it clear to the player where either the AI, or another player, have moved
+V4.4
+- Improved the speed at which the advanced heuristics for the rook, queen and bishop are executed
+- Fixed a bug where the implementation of the opening book could cause an issue with the castling code and crash the program
+- Altered the start-up GUI so that there are options for account settings and loading games, as well as the creating a new game system
+- This included renaming Game._play_game() to Game._wait_until_ready_then_play() to better represent the new functionality added within it
+- Altered the in game GUI to have the options panel down the left as shown in the GUI wireframes
+  - Including showing the current evaluation of the game by the program
+- Implemented accounts system along with the database
+  - This includes the menus and functionality to create and delete accounts, query player information, and sign in and out of accounts
+- Implemented the loading and saving of unfinished games
+- Implemented undoing moves in GUI
+- Added an option to quit the current game
+- Improved game settings when creating the game, including being able to alter AI difficulty during the game
+- Added importing and exporting .pgn files, as well as a replay mode for finished games
+- Highlights valid move destinations purple on the board for selected piece
+- Implemented Fischer random chess as an option
